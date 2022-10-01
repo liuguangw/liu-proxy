@@ -13,7 +13,7 @@ pub struct ProxyServerCommand {
 
 impl AppCommand for ProxyServerCommand {
     fn execute(&self) {
-        let fut = proxy_server::execute(&self.address,self.port);
+        let fut = proxy_server::execute(&self.address, self.port);
         if let Err(err) = rt::block_on(fut) {
             panic!("{}", err)
         }

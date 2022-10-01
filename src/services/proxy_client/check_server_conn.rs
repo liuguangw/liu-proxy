@@ -1,5 +1,3 @@
-use std::str::Utf8Error;
-
 use crate::common::socket5::ConnDest;
 use crate::services::poll_message;
 use futures_util::{SinkExt, StreamExt};
@@ -8,6 +6,8 @@ use tokio_tungstenite::tungstenite::Error as WsError;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::Result as WsResult;
 
+use super::io::ProxyConnectResult;
+
 #[derive(Error, Debug)]
 pub enum ProxyConnError {
     #[error("send auth data failed: {0}")]
@@ -15,10 +15,18 @@ pub enum ProxyConnError {
     #[error("poll auth data failed: {0}")]
     Poll(WsError),
     ///连接出错
-    #[error("server conn failed: {0}")]
+    #[error("server connect failed: {0}")]
     Conn(String),
-    #[error("parse server error msg as utf-8 failed: {0}")]
-    Utf8Message(#[from] Utf8Error)
+    ///超时
+    #[error("server connect remote timeout")]
+    Timeout,
+}
+
+impl ProxyConnError {
+    ///判断客户端与服务端之间的连接是否有错误
+    pub fn is_ws_error(&self) -> bool {
+        matches!(self, Self::Send(_) | Self::Poll(_))
+    }
 }
 
 pub async fn check_server_conn<T>(
@@ -33,16 +41,22 @@ where
         return Err(ProxyConnError::Send(e));
     }
     match poll_message::poll_binary_message(ws_stream).await {
-        Ok(s) => match s.first() {
-            Some(0)=>{
-                Ok(())
-            },
-            Some(1)|Some(2)=>{
-                let error_message =std::str::from_utf8(&s[1..])?.to_string();
-                Err(ProxyConnError::Conn(error_message))
-            },
-            _=>{
-                let error_message ="invalid conn ret code".to_string();
+        Ok(option_s) => match option_s {
+            Some(s) => {
+                let msg_type = s[0];
+                if msg_type != 1 {
+                    let error_message = format!("invalid msg_type: {msg_type}");
+                    return Err(ProxyConnError::Conn(error_message));
+                }
+                let conn_result = ProxyConnectResult::from(&s[1..]);
+                match conn_result {
+                    ProxyConnectResult::Ok => Ok(()),
+                    ProxyConnectResult::Err(e) => Err(ProxyConnError::Conn(e)),
+                    ProxyConnectResult::Timeout => Err(ProxyConnError::Timeout),
+                }
+            }
+            None => {
+                let error_message = "poll conn result empty".to_string();
                 Err(ProxyConnError::Conn(error_message))
             }
         },

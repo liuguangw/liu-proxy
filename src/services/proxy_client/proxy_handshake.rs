@@ -1,11 +1,9 @@
-use std::{
-    io::{self, ErrorKind, Result as IoResult},
-};
+use crate::common::socket5::{self, ConnDest};
+use std::io::{self, ErrorKind, Result as IoResult};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
 };
-use crate::common::socket5::{ConnDest,self};
 
 pub async fn proxy_handshake(stream: &mut TcpStream) -> IoResult<ConnDest> {
     let version = stream.read_u8().await?;
@@ -19,14 +17,14 @@ pub async fn proxy_handshake(stream: &mut TcpStream) -> IoResult<ConnDest> {
     {
         let mut buffer = vec![0; methods as usize];
         stream.read_exact(&mut buffer).await?;
-        if methods==0{
+        if methods == 0 {
             return Err(io::Error::new(
                 ErrorKind::Other,
                 format!("invalid methods count value: {methods}"),
             ));
         }
         //客户端不支持无密码
-        if !buffer.as_slice().contains(&0){
+        if !buffer.as_slice().contains(&0) {
             return Err(io::Error::new(
                 ErrorKind::Other,
                 "NO AUTH is not in methods".to_string(),
@@ -49,9 +47,7 @@ pub async fn proxy_handshake(stream: &mut TcpStream) -> IoResult<ConnDest> {
     }
     //rsv
     stream.read_u8().await?;
-     ConnDest::try_from_stream(stream).await
-    .map_err(|e|io::Error::new(
-        ErrorKind::Other,
-        e.to_string(),
-    ))
+    ConnDest::try_from_stream(stream)
+        .await
+        .map_err(|e| io::Error::new(ErrorKind::Other, e.to_string()))
 }

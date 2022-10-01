@@ -33,3 +33,10 @@ impl ProxyResponseResult {
         Message::binary(msg_data)
     }
 }
+
+
+impl ProxyResponseResult {
+    pub fn to_vec(&self) -> Vec<u8> {
+        todo!()
+    }
+}

@@ -1,9 +1,9 @@
-use std::net::SocketAddr;
-use tokio::net::TcpStream;
-use tokio_tungstenite::tungstenite::Message;
 use super::check_auth_token::check_auth_token;
 use super::run_proxy_tcp_loop::run_proxy_tcp_loop;
 use futures_util::SinkExt;
+use std::net::SocketAddr;
+use tokio::net::TcpStream;
+use tokio_tungstenite::tungstenite::Message;
 
 pub async fn handle_connection(raw_stream: TcpStream, addr: SocketAddr) {
     println!("client {addr} connected");
@@ -25,7 +25,7 @@ pub async fn handle_connection(raw_stream: TcpStream, addr: SocketAddr) {
         return;
     }
     println!("client auth success");
-    if let Err(proxy_error) = run_proxy_tcp_loop(&mut ws_stream).await{
+    if let Err(proxy_error) = run_proxy_tcp_loop(&mut ws_stream).await {
         println!("proxy error: {proxy_error}");
     }
 }

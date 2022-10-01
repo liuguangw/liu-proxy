@@ -24,13 +24,16 @@ pub async fn check_auth_token(
         .await
         .map_err(ProxyAuthError::Send)?;
     match poll_message::poll_binary_message(ws_stream).await {
-        Ok(s) => {
-            if let Some(0) = s.first() {
-                Ok(())
-            } else {
-                Err(ProxyAuthError::AuthFailed)
+        Ok(option_s) => match option_s {
+            Some(s) => {
+                if let Some(0) = s.first() {
+                    Ok(())
+                } else {
+                    Err(ProxyAuthError::AuthFailed)
+                }
             }
-        }
+            None => Err(ProxyAuthError::AuthFailed),
+        },
         Err(e) => Err(ProxyAuthError::Poll(e)),
     }
 }

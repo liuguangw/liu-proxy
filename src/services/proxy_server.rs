@@ -1,14 +1,15 @@
-mod handle_connection;
 mod check_auth_token;
-mod run_proxy_tcp_loop;
-mod proxy_tcp;
+mod handle_connection;
+mod io;
 mod proxy_error;
+mod proxy_tcp;
+mod run_proxy_tcp_loop;
 mod wait_conn_remote;
 
+pub use handle_connection::handle_connection as handle_connection_fn;
 use std::io::Result as IoResult;
 use tokio::net::TcpListener;
 use tokio::signal;
-pub use handle_connection::handle_connection as handle_connection_fn;
 
 pub async fn execute(address: &str, port: u16) -> IoResult<()> {
     let listener = TcpListener::bind((address, port)).await?;

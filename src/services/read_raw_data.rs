@@ -1,5 +1,5 @@
-use tokio::{net::TcpStream, io::AsyncReadExt};
 use std::io::{Error as IoError, ErrorKind};
+use tokio::{io::AsyncReadExt, net::TcpStream};
 
 pub async fn read_raw(stream: &mut TcpStream) -> Result<Vec<u8>, IoError> {
     let mut buf = vec![0; 1024];

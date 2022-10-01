@@ -198,11 +198,11 @@ impl ConnDest {
                 (AddressType::Domain, buff)
             }
         };
-        let mut raw_data = Vec::with_capacity(addr_buffer.len()+3);
+        let mut raw_data = Vec::with_capacity(addr_buffer.len() + 3);
         raw_data.push(addr_type.into());
         raw_data.extend_from_slice(&addr_buffer);
-        let p0 = (self.port>>8) as u8;
-        let p1 = (self.port&0xFF) as u8;
+        let p0 = (self.port >> 8) as u8;
+        let p1 = (self.port & 0xFF) as u8;
         raw_data.push(p0);
         raw_data.push(p1);
         raw_data

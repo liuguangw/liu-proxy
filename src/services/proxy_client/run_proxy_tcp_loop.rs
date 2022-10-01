@@ -26,6 +26,12 @@ where
         }
         Err(e) => {
             println!("server conn {conn_dest} failed: {e}");
+            if !e.is_ws_error() {
+                //断开连接
+                if let Err(e1) = ws_stream.close().await {
+                    println!("close conn failed: {e1}");
+                }
+            }
             5
         }
     };
@@ -40,7 +46,7 @@ where
         if let Err(e) = tcp_stream.write_all(&socket5_response).await {
             return Err(ProxyError::io_err("write socket5_response", e));
         } else {
-            println!("write socket5_response success");
+            println!("socket5 handshake ok");
         }
     }
     if rep != 0 {
