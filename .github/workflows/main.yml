@@ -46,3 +46,4 @@ jobs:
         with:
           name: my-build
           path: target/release/liu-proxy
+          retention-days: 5
