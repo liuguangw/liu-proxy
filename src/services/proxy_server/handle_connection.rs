@@ -26,7 +26,7 @@ pub async fn handle_connection(raw_stream: TcpStream, addr: SocketAddr) {
         return;
     }
     println!("client auth success");
-    if let Err(proxy_error) = run_proxy_tcp_loop(&mut ws_stream).await {
+    if let Err(proxy_error) = run_proxy_tcp_loop(ws_stream).await {
         if !matches!(proxy_error, ProxyError::ClientClosed) {
             println!("{proxy_error}");
         }

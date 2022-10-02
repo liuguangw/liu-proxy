@@ -1,6 +1,7 @@
 use crate::common::socket5::ParseConnDestError;
 use thiserror::Error;
-use tokio_tungstenite::tungstenite::Error as WsErr;
+use tokio::sync::mpsc::error::SendError;
+use tokio_tungstenite::tungstenite::{Error as WsErr, Message};
 
 ///服务端proxy错误定义
 #[derive(Error, Debug)]
@@ -11,6 +12,8 @@ pub enum ProxyError {
     WsErr(String, WsErr),
     #[error("client closed connection")]
     ClientClosed,
+    #[error("channel send failed: {0}")]
+    Channel(#[from] SendError<Message>),
 }
 
 impl ProxyError {

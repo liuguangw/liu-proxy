@@ -1,95 +1,114 @@
-use super::io::ProxyRequestResult;
-use super::io::ProxyResponseResult;
+use super::io::{ProxyRequestResult, ProxyResponseResult};
 use super::proxy_error::ProxyError;
-use crate::services::poll_message;
-use crate::services::read_raw_data;
-use futures_util::SinkExt;
-use std::io::{Error as IoError, ErrorKind};
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
-use tokio_tungstenite::tungstenite::Error as WsError;
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::WebSocketStream;
+use crate::services::{poll_message, read_raw_data};
+use futures_util::{SinkExt, StreamExt};
+use std::io::ErrorKind;
+use tokio::{
+    io::{AsyncRead, AsyncWrite, AsyncWriteExt},
+    net::TcpStream,
+    sync::mpsc::{self, Receiver, Sender},
+};
+use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
-pub async fn proxy_tcp(
-    client_stream: &mut WebSocketStream<TcpStream>,
+pub async fn proxy_tcp<T, U>(
+    client_reader: &mut T,
+    client_writer: &mut U,
     mut remote_stream: TcpStream,
-) -> Result<(), ProxyError> {
+) -> Result<(), ProxyError>
+where
+    T: StreamExt<Item = Result<Message, WsError>> + Unpin,
+    U: SinkExt<Message, Error = WsError> + Unpin,
+{
+    let (mut remote_reader, mut remote_writer) = remote_stream.split();
+    let (tx, rx) = mpsc::channel::<Message>(100);
+    tokio::select! {
+        request_result = read_request_loop(client_reader, &mut remote_writer, tx.clone())=>request_result,
+        response_result = read_response_loop(&mut remote_reader, tx)=>response_result,
+        write_result = write_client_loop(rx, client_writer) =>write_result
+    }
+}
+
+///将客户端请求转发给远端
+async fn read_request_loop<T, U>(
+    client_reader: &mut T,
+    remote_writer: &mut U,
+    tx: Sender<Message>,
+) -> Result<(), ProxyError>
+where
+    T: StreamExt<Item = Result<Message, WsError>> + Unpin,
+    U: AsyncWrite + Unpin,
+{
     loop {
-        tokio::select! {
-            //读取客户端请求
-            request_result = poll_message::poll_binary_message(client_stream) => {
-                let send_request_result = proxy_send_request(request_result,&mut remote_stream,client_stream).await?;
-                //server向远端发送请求失败
-                if !send_request_result.is_ok(){
-                    break;
-                }
+        //读取客户端请求
+        let request_data = match poll_message::poll_binary_message(client_reader).await {
+            Ok(option_data) => match option_data {
+                Some(s) => s,
+                None => return Err(ProxyError::ClientClosed),
             },
-            //读取远端响应
-            response_result = read_raw_data::read_raw(&mut remote_stream) => {
-                let send_response_result = proxy_send_response(response_result,client_stream).await?;
-                //server读取远端response失败
-                if !send_response_result.is_ok(){
-                    break;
+            Err(e) => return Err(ProxyError::ws_err("read client request", e)),
+        };
+        //把请求发给远端
+        let request_result = match remote_writer.write(&request_data).await {
+            Ok(_) => ProxyRequestResult::Ok,
+            Err(e) => {
+                if e.kind() == ErrorKind::UnexpectedEof {
+                    ProxyRequestResult::Closed
+                } else {
+                    ProxyRequestResult::Err(e)
                 }
             }
         };
+        //把write远端的结果发给客户端
+        let request_ret_msg = Message::from(&request_result);
+        tx.send(request_ret_msg).await?;
+        //request失败跳出循环
+        if !request_result.is_ok() {
+            break;
+        }
     }
     Ok(())
 }
 
-///将客户端请求转发给远端
-async fn proxy_send_request(
-    read_request_result: Result<Option<Vec<u8>>, WsError>,
-    remote_stream: &mut TcpStream,
-    client_stream: &mut WebSocketStream<TcpStream>,
-) -> Result<ProxyRequestResult, ProxyError> {
-    //读取客户端请求
-    let request_data = match read_request_result {
-        Ok(option_data) => match option_data {
-            Some(s) => s,
-            None => return Err(ProxyError::ClientClosed),
-        },
-        Err(e) => return Err(ProxyError::ws_err("read client request", e)),
-    };
-    //把请求发给远端
-    let request_result = match remote_stream.write(&request_data).await {
-        Ok(_) => ProxyRequestResult::Ok,
-        Err(e) => {
-            if e.kind() == ErrorKind::UnexpectedEof {
-                ProxyRequestResult::Closed
-            } else {
-                ProxyRequestResult::Err(e)
+///将响应转发给客户端
+async fn read_response_loop<T>(remote_reader: &mut T, tx: Sender<Message>) -> Result<(), ProxyError>
+where
+    T: AsyncRead + Unpin,
+{
+    loop {
+        let response_result = match read_raw_data::read_raw(remote_reader).await {
+            Ok(data) => ProxyResponseResult::Ok(data),
+            Err(e) => {
+                if e.kind() == ErrorKind::UnexpectedEof {
+                    ProxyResponseResult::Closed
+                } else {
+                    ProxyResponseResult::Err(e)
+                }
             }
+        };
+        //把write远端的结果发给客户端
+        let response_ret_msg = Message::from(&response_result);
+        tx.send(response_ret_msg).await?;
+        //response失败跳出循环
+        if !response_result.is_ok() {
+            break;
         }
-    };
-    let request_ret_msg = Message::from(&request_result);
-    //把write远端的结果发给客户端
-    if let Err(e) = client_stream.send(request_ret_msg).await {
-        return Err(ProxyError::ws_err("write request result", e));
     }
-    Ok(request_result)
+    Ok(())
 }
 
-///将响应转发给客户端
-async fn proxy_send_response(
-    read_response_result: Result<Vec<u8>, IoError>,
-    client_stream: &mut WebSocketStream<TcpStream>,
-) -> Result<ProxyResponseResult, ProxyError> {
-    let response_result = match read_response_result {
-        Ok(data) => ProxyResponseResult::Ok(data),
-        Err(e) => {
-            if e.kind() == ErrorKind::UnexpectedEof {
-                ProxyResponseResult::Closed
-            } else {
-                ProxyResponseResult::Err(e)
-            }
+///把消息发送到客户端
+async fn write_client_loop<T>(
+    mut rx: Receiver<Message>,
+    client_writer: &mut T,
+) -> Result<(), ProxyError>
+where
+    T: SinkExt<Message, Error = WsError> + Unpin,
+{
+    while let Some(ret_msg) = rx.recv().await {
+        //把write远端的结果发给客户端
+        if let Err(e) = client_writer.send(ret_msg).await {
+            return Err(ProxyError::ws_err("write client", e));
         }
-    };
-    let response_ret_msg = Message::from(&response_result);
-    //把write远端的结果发给客户端
-    if let Err(e) = client_stream.send(response_ret_msg).await {
-        return Err(ProxyError::ws_err("write response to client", e));
     }
-    Ok(response_result)
+    Ok(())
 }

@@ -1,7 +1,10 @@
 use std::io::{Error as IoError, ErrorKind};
-use tokio::{io::AsyncReadExt, net::TcpStream};
+use tokio::io::{AsyncRead, AsyncReadExt};
 
-pub async fn read_raw(stream: &mut TcpStream) -> Result<Vec<u8>, IoError> {
+pub async fn read_raw<T>(stream: &mut T) -> Result<Vec<u8>, IoError>
+where
+    T: AsyncRead + Unpin,
+{
     let mut buf = vec![0; 1024];
     let n = stream.read(&mut buf).await?;
     if n == 0 {
