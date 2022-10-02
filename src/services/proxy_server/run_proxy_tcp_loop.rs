@@ -18,7 +18,8 @@ pub async fn run_proxy_tcp_loop(
         let conn_dest = match poll_message::poll_binary_message(client_stream).await {
             Ok(option_data) => match option_data {
                 Some(s) => ConnDest::try_from_bytes(&s)?,
-                None => return Ok(()),
+                //客户端断开了连接
+                None => return Err(ProxyError::ClientClosed),
             },
             Err(e) => {
                 return Err(ProxyError::ws_err("get dest addr", e));

@@ -12,8 +12,11 @@ pub enum ProxyError {
     ///客户端主动断开本地socket5服务器
     #[error("client closed")]
     ClientClosed,
+    ///服务端主动关闭了连接
+    #[error("server closed")]
+    ServerClosed,
     ///远端主动关闭了连接
-    #[error("client closed")]
+    #[error("remote closed")]
     RemoteClosed,
     ///
     #[error("server write request failed: {0}")]
@@ -21,6 +24,9 @@ pub enum ProxyError {
     ///
     #[error("server read response failed: {0}")]
     ResponseErr(String),
+    ///
+    #[error("invalid ret message type {0}")]
+    InvalidRetMsgType(u8),
 }
 
 impl ProxyError {

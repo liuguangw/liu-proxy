@@ -18,13 +18,7 @@ where
         tokio::select! {
             //读取客户端请求
             request_result =  read_raw_data::read_raw(tcp_stream) => {
-                if let Err(e) = proxy_send_request(request_result,ws_stream).await{
-                    if let ProxyError::ClientClosed = e {
-                        return Ok(());
-                    }else{
-                        return Err(e);
-                    }
-                }
+                proxy_send_request(request_result,ws_stream).await?;
             },
             //读取服务端响应
             response_result =poll_message::poll_binary_message(ws_stream) => {
@@ -69,11 +63,7 @@ async fn proxy_send_response(
     let response_data = match read_response_result {
         Ok(option_data) => match option_data {
             Some(data) => data,
-            None => {
-                let error_message = "get empty data";
-                let io_err = IoError::new(ErrorKind::Other, error_message);
-                return Err(ProxyError::io_err("write response", io_err));
-            }
+            None => return Err(ProxyError::ServerClosed),
         },
         Err(e) => return Err(ProxyError::ws_err("write response", e)),
     };
@@ -100,7 +90,6 @@ async fn proxy_send_response(
             Ok(())
         }
     } else {
-        let err = IoError::new(ErrorKind::Other, format!("unkown msg_type: {msg_type}"));
-        Err(ProxyError::io_err("msg type state", err))
+        Err(ProxyError::InvalidRetMsgType(msg_type))
     }
 }

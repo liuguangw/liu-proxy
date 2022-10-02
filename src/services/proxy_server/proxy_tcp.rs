@@ -20,19 +20,22 @@ pub async fn proxy_tcp(
             //读取客户端请求
             request_result = poll_message::poll_binary_message(client_stream) => {
                 let send_request_result = proxy_send_request(request_result,&mut remote_stream,client_stream).await?;
+                //server向远端发送请求失败
                 if !send_request_result.is_ok(){
-                    return Ok(());
+                    break;
                 }
             },
             //读取远端响应
             response_result = read_raw_data::read_raw(&mut remote_stream) => {
                 let send_response_result = proxy_send_response(response_result,client_stream).await?;
+                //server读取远端response失败
                 if !send_response_result.is_ok(){
-                    return Ok(());
+                    break;
                 }
             }
         };
     }
+    Ok(())
 }
 
 ///将客户端请求转发给远端
@@ -45,11 +48,7 @@ async fn proxy_send_request(
     let request_data = match read_request_result {
         Ok(option_data) => match option_data {
             Some(s) => s,
-            None => {
-                let error_message = "get empty data";
-                let io_err = IoError::new(ErrorKind::Other, error_message);
-                return Ok(ProxyRequestResult::Err(io_err));
-            }
+            None => return Err(ProxyError::ClientClosed),
         },
         Err(e) => return Err(ProxyError::ws_err("read client request", e)),
     };

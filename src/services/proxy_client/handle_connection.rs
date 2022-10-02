@@ -1,4 +1,5 @@
 use super::check_auth_token::check_auth_token;
+use super::proxy_error::ProxyError;
 use super::proxy_handshake::proxy_handshake;
 use super::run_proxy_tcp_loop::run_proxy_tcp_loop;
 use std::net::SocketAddr;
@@ -10,15 +11,14 @@ pub async fn handle_connection(mut stream: TcpStream, addr: SocketAddr, server_a
     let conn_dest = match proxy_handshake(&mut stream).await {
         Ok(s) => s,
         Err(handshake_error) => {
-            println!("Error during the socket5 handshake occurred: {handshake_error}");
+            println!("socket5 handshake failed: {handshake_error}");
             return;
         }
     };
-    let server_address = format!("ws://{server_address}");
     let mut ws_stream = match connect_async(&server_address).await {
         Ok(s) => s.0,
         Err(e) => {
-            println!("Error during the websocket handshake occurred: {e}");
+            println!("websocket handshake failed: {e}");
             return;
         }
     };
@@ -28,9 +28,18 @@ pub async fn handle_connection(mut stream: TcpStream, addr: SocketAddr, server_a
         println!("auth error: {auth_error}");
         return;
     }
-    println!("check_auth_token ok");
+    println!("server auth ok");
     //
     if let Err(proxy_error) = run_proxy_tcp_loop(&mut ws_stream, &mut stream, &conn_dest).await {
-        println!("proxy error: {proxy_error}");
+        println!("{proxy_error}");
+        //断开与server之间的连接
+        if !matches!(
+            proxy_error,
+            ProxyError::WsErr(_, _) | ProxyError::ServerClosed
+        ) {
+            if let Err(e1) = ws_stream.close(None).await {
+                println!("close conn failed: {e1}");
+            }
+        }
     }
 }

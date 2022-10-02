@@ -18,7 +18,7 @@ pub async fn run_proxy_tcp_loop<T>(
 where
     T: StreamExt<Item = WsResult<Message>> + SinkExt<Message, Error = WsError> + Unpin,
 {
-    //
+    //把目标地址端口发给server,并检测server连接结果
     let rep = match check_server_conn(ws_stream, conn_dest).await {
         Ok(_) => {
             println!("server conn {conn_dest} success");
@@ -27,7 +27,7 @@ where
         Err(e) => {
             println!("server conn {conn_dest} failed: {e}");
             if !e.is_ws_error() {
-                //断开连接
+                //断开与server之间的连接
                 if let Err(e1) = ws_stream.close().await {
                     println!("close conn failed: {e1}");
                 }
@@ -45,13 +45,12 @@ where
         socket5_response.extend_from_slice(&addr_raw_data);
         if let Err(e) = tcp_stream.write_all(&socket5_response).await {
             return Err(ProxyError::io_err("write socket5_response", e));
-        } else {
-            println!("socket5 handshake ok");
         }
     }
     if rep != 0 {
         return Ok(());
     }
+    println!("socket5 handshake success");
     // proxy
     proxy_tcp(ws_stream, tcp_stream).await
 }

@@ -20,12 +20,14 @@ pub enum ProxyConnError {
     ///超时
     #[error("server connect remote timeout")]
     Timeout,
+    #[error("connection closed by server")]
+    ServerClosed,
 }
 
 impl ProxyConnError {
     ///判断客户端与服务端之间的连接是否有错误
     pub fn is_ws_error(&self) -> bool {
-        matches!(self, Self::Send(_) | Self::Poll(_))
+        matches!(self, Self::Send(_) | Self::Poll(_) | Self::ServerClosed)
     }
 }
 
@@ -42,24 +44,23 @@ where
     }
     match poll_message::poll_binary_message(ws_stream).await {
         Ok(option_s) => match option_s {
-            Some(s) => {
-                let msg_type = s[0];
-                if msg_type != 1 {
-                    let error_message = format!("invalid msg_type: {msg_type}");
-                    return Err(ProxyConnError::Conn(error_message));
-                }
-                let conn_result = ProxyConnectResult::from(&s[1..]);
-                match conn_result {
-                    ProxyConnectResult::Ok => Ok(()),
-                    ProxyConnectResult::Err(e) => Err(ProxyConnError::Conn(e)),
-                    ProxyConnectResult::Timeout => Err(ProxyConnError::Timeout),
-                }
-            }
-            None => {
-                let error_message = "poll conn result empty".to_string();
-                Err(ProxyConnError::Conn(error_message))
-            }
+            Some(binary_data) => parse_server_conn_result(&binary_data),
+            None => Err(ProxyConnError::ServerClosed),
         },
         Err(e) => Err(ProxyConnError::Poll(e)),
+    }
+}
+
+fn parse_server_conn_result(binary_data: &[u8]) -> Result<(), ProxyConnError> {
+    let msg_type = binary_data[0];
+    if msg_type != 1 {
+        let error_message = format!("invalid msg_type: {msg_type}");
+        return Err(ProxyConnError::Conn(error_message));
+    }
+    let conn_result = ProxyConnectResult::from(&binary_data[1..]);
+    match conn_result {
+        ProxyConnectResult::Ok => Ok(()),
+        ProxyConnectResult::Err(e) => Err(ProxyConnError::Conn(e)),
+        ProxyConnectResult::Timeout => Err(ProxyConnError::Timeout),
     }
 }

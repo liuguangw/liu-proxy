@@ -9,6 +9,8 @@ pub enum ProxyError {
     ParseClientDest(#[from] ParseConnDestError),
     #[error("{0} failed: {1}")]
     WsErr(String, WsErr),
+    #[error("client closed connection")]
+    ClientClosed,
 }
 
 impl ProxyError {

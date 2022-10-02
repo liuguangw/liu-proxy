@@ -10,7 +10,7 @@ pub async fn handle_connection(raw_stream: TcpStream, addr: SocketAddr) {
     let mut ws_stream = match tokio_tungstenite::accept_async(raw_stream).await {
         Ok(s) => s,
         Err(e) => {
-            println!("Error during the websocket handshake occurred: {e}");
+            println!("accept websocket client failed: {e}");
             return;
         }
     };
@@ -26,6 +26,6 @@ pub async fn handle_connection(raw_stream: TcpStream, addr: SocketAddr) {
     }
     println!("client auth success");
     if let Err(proxy_error) = run_proxy_tcp_loop(&mut ws_stream).await {
-        println!("proxy error: {proxy_error}");
+        println!("{proxy_error}");
     }
 }
