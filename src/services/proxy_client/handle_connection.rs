@@ -31,7 +31,9 @@ pub async fn handle_connection(mut stream: TcpStream, addr: SocketAddr, server_a
     println!("server auth ok");
     //
     if let Err(proxy_error) = run_proxy_tcp_loop(&mut ws_stream, &mut stream, &conn_dest).await {
-        println!("{proxy_error}");
+        if !matches!(proxy_error, ProxyError::ClientClosed) {
+            println!("{proxy_error}");
+        }
         //断开与server之间的连接
         if !matches!(
             proxy_error,

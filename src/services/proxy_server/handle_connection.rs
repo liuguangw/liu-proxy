@@ -1,4 +1,5 @@
 use super::check_auth_token::check_auth_token;
+use super::proxy_error::ProxyError;
 use super::run_proxy_tcp_loop::run_proxy_tcp_loop;
 use futures_util::SinkExt;
 use std::net::SocketAddr;
@@ -26,6 +27,8 @@ pub async fn handle_connection(raw_stream: TcpStream, addr: SocketAddr) {
     }
     println!("client auth success");
     if let Err(proxy_error) = run_proxy_tcp_loop(&mut ws_stream).await {
-        println!("{proxy_error}");
+        if !matches!(proxy_error, ProxyError::ClientClosed) {
+            println!("{proxy_error}");
+        }
     }
 }

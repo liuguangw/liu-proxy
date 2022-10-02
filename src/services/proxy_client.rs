@@ -12,7 +12,7 @@ use std::io::Result as IoResult;
 use tokio::net::TcpListener;
 use tokio::signal;
 
-pub async fn execute(listen_address: (&str, u16), server_url:&str) -> IoResult<()> {
+pub async fn execute(listen_address: (&str, u16), server_url: &str) -> IoResult<()> {
     let listener = TcpListener::bind(listen_address).await?;
     println!(
         "Socket5 Listening on: {}:{}",
@@ -38,6 +38,10 @@ async fn run_accept_loop(listener: TcpListener, server_address: &str) {
                 continue;
             }
         };
-        tokio::spawn(handle_connection_fn(stream, addr, server_address.to_string()));
+        tokio::spawn(handle_connection_fn(
+            stream,
+            addr,
+            server_address.to_string(),
+        ));
     }
 }
