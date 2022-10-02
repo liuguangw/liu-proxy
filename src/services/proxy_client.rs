@@ -12,7 +12,11 @@ use std::io::Result as IoResult;
 use tokio::net::TcpListener;
 use tokio::signal;
 
-pub async fn execute(listen_address: (&str, u16), server_url: &str) -> IoResult<()> {
+pub async fn execute(
+    listen_address: (&str, u16),
+    server_url: &str,
+    server_host: &Option<String>,
+) -> IoResult<()> {
     let listener = TcpListener::bind(listen_address).await?;
     println!(
         "Socket5 Listening on: {}:{}",
@@ -20,7 +24,7 @@ pub async fn execute(listen_address: (&str, u16), server_url: &str) -> IoResult<
     );
     //let server_address = server_url.to_string();
     tokio::select! {
-        _ = run_accept_loop(listener, server_url) =>(),
+        _ = run_accept_loop(listener, server_url, server_host) =>(),
         output2 = signal::ctrl_c() =>{
             output2?;
             println!(" - client shutdown");
@@ -29,7 +33,7 @@ pub async fn execute(listen_address: (&str, u16), server_url: &str) -> IoResult<
     Ok(())
 }
 
-async fn run_accept_loop(listener: TcpListener, server_address: &str) {
+async fn run_accept_loop(listener: TcpListener, server_url: &str, server_host: &Option<String>) {
     loop {
         let (stream, addr) = match listener.accept().await {
             Ok(s) => s,
@@ -41,7 +45,8 @@ async fn run_accept_loop(listener: TcpListener, server_address: &str) {
         tokio::spawn(handle_connection_fn(
             stream,
             addr,
-            server_address.to_string(),
+            server_url.to_string(),
+            server_host.to_owned(),
         ));
     }
 }

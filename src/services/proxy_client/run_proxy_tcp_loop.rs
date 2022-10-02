@@ -1,25 +1,23 @@
 use super::check_server_conn::check_server_conn;
 use super::proxy_error::ProxyError;
 use super::proxy_tcp::proxy_tcp;
-use crate::common::socket5;
-use crate::common::socket5::ConnDest;
+use crate::common::socket5::{self, ConnDest};
 use futures_util::{SinkExt, StreamExt};
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
-use tokio_tungstenite::tungstenite::Error as WsError;
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::tungstenite::Result as WsResult;
+use tokio::{io::AsyncWriteExt, net::TcpStream};
+use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
-pub async fn run_proxy_tcp_loop<T>(
-    ws_stream: &mut T,
+pub async fn run_proxy_tcp_loop<T, U>(
+    ws_reader: &mut T,
+    ws_writer: &mut U,
     tcp_stream: &mut TcpStream,
     conn_dest: &ConnDest,
 ) -> Result<(), ProxyError>
 where
-    T: StreamExt<Item = WsResult<Message>> + SinkExt<Message, Error = WsError> + Unpin,
+    T: StreamExt<Item = Result<Message, WsError>> + Unpin,
+    U: SinkExt<Message, Error = WsError> + Unpin,
 {
     //把目标地址端口发给server,并检测server连接结果
-    let rep = match check_server_conn(ws_stream, conn_dest).await {
+    let rep = match check_server_conn(ws_reader, ws_writer, conn_dest).await {
         Ok(_) => {
             println!("server conn {conn_dest} success");
             0
@@ -28,7 +26,7 @@ where
             println!("server conn {conn_dest} failed: {e}");
             if !e.is_ws_error() {
                 //断开与server之间的连接
-                if let Err(e1) = ws_stream.close().await {
+                if let Err(e1) = ws_writer.close().await {
                     println!("close conn failed: {e1}");
                 }
             }
@@ -52,5 +50,5 @@ where
     }
     println!("socket5 handshake success");
     // proxy
-    proxy_tcp(ws_stream, tcp_stream).await
+    proxy_tcp(ws_reader, ws_writer, tcp_stream).await
 }

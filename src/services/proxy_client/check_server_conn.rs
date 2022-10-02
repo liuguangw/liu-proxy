@@ -1,12 +1,9 @@
+use super::io::ProxyConnectResult;
 use crate::common::socket5::ConnDest;
 use crate::services::poll_message;
 use futures_util::{SinkExt, StreamExt};
 use thiserror::Error;
-use tokio_tungstenite::tungstenite::Error as WsError;
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::tungstenite::Result as WsResult;
-
-use super::io::ProxyConnectResult;
+use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 #[derive(Error, Debug)]
 pub enum ProxyConnError {
@@ -31,18 +28,20 @@ impl ProxyConnError {
     }
 }
 
-pub async fn check_server_conn<T>(
-    ws_stream: &mut T,
+pub async fn check_server_conn<T, U>(
+    ws_reader: &mut T,
+    ws_writer: &mut U,
     conn_dest: &ConnDest,
 ) -> Result<(), ProxyConnError>
 where
-    T: StreamExt<Item = WsResult<Message>> + SinkExt<Message, Error = WsError> + Unpin,
+    T: StreamExt<Item = Result<Message, WsError>> + Unpin,
+    U: SinkExt<Message, Error = WsError> + Unpin,
 {
     let conn_msg = Message::binary(conn_dest.to_raw_data());
-    if let Err(e) = ws_stream.send(conn_msg).await {
+    if let Err(e) = ws_writer.send(conn_msg).await {
         return Err(ProxyConnError::Send(e));
     }
-    match poll_message::poll_binary_message(ws_stream).await {
+    match poll_message::poll_binary_message(ws_reader).await {
         Ok(option_s) => match option_s {
             Some(binary_data) => parse_server_conn_result(&binary_data),
             None => Err(ProxyConnError::ServerClosed),
