@@ -16,6 +16,7 @@ pub async fn execute(
     listen_address: (&str, u16),
     server_url: &str,
     server_host: &Option<String>,
+    insecure: bool,
 ) -> IoResult<()> {
     let listener = TcpListener::bind(listen_address).await?;
     println!(
@@ -24,7 +25,7 @@ pub async fn execute(
     );
     //let server_address = server_url.to_string();
     tokio::select! {
-        _ = run_accept_loop(listener, server_url, server_host) =>(),
+        _ = run_accept_loop(listener, server_url, server_host,insecure) =>(),
         output2 = signal::ctrl_c() =>{
             output2?;
             println!(" - client shutdown");
@@ -33,7 +34,12 @@ pub async fn execute(
     Ok(())
 }
 
-async fn run_accept_loop(listener: TcpListener, server_url: &str, server_host: &Option<String>) {
+async fn run_accept_loop(
+    listener: TcpListener,
+    server_url: &str,
+    server_host: &Option<String>,
+    insecure: bool,
+) {
     loop {
         let (stream, addr) = match listener.accept().await {
             Ok(s) => s,
@@ -47,6 +53,7 @@ async fn run_accept_loop(listener: TcpListener, server_url: &str, server_host: &
             addr,
             server_url.to_string(),
             server_host.to_owned(),
+            insecure,
         ));
     }
 }

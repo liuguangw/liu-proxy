@@ -2,15 +2,17 @@ use super::check_auth_token::check_auth_token;
 use super::proxy_error::ProxyError;
 use super::proxy_handshake::proxy_handshake;
 use super::run_proxy_tcp_loop::run_proxy_tcp_loop;
+use crate::common::NoServerCertVerifier;
 use futures_util::{SinkExt, StreamExt};
-use std::net::SocketAddr;
+use rustls::ClientConfig;
+use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
     tungstenite::{
-        error::UrlError, handshake::server::Response, http::Uri, Error as WsError,
-        Result as WsResult,
+        client, error::UrlError, handshake::server::Response, http::Uri, stream::Mode,
+        Error as WsError, Result as WsResult,
     },
-    MaybeTlsStream, WebSocketStream,
+    Connector, MaybeTlsStream, WebSocketStream,
 };
 
 pub async fn handle_connection(
@@ -18,6 +20,7 @@ pub async fn handle_connection(
     addr: SocketAddr,
     server_url: String,
     server_host: Option<String>,
+    insecure: bool,
 ) {
     println!("client {addr} connected");
     let conn_dest = match proxy_handshake(&mut stream).await {
@@ -27,7 +30,7 @@ pub async fn handle_connection(
             return;
         }
     };
-    let mut ws_stream = match conn_websocket_server(&server_url, &server_host).await {
+    let mut ws_stream = match conn_websocket_server(&server_url, &server_host, insecure).await {
         Ok(s) => s.0,
         Err(e) => {
             println!("websocket handshake failed: {e}");
@@ -64,6 +67,7 @@ pub async fn handle_connection(
 async fn conn_websocket_server(
     server_url: &str,
     server_host: &Option<String>,
+    insecure: bool,
 ) -> WsResult<(WebSocketStream<MaybeTlsStream<TcpStream>>, Response)> {
     let host = match server_host {
         Some(s) => s,
@@ -80,5 +84,22 @@ async fn conn_websocket_server(
         .ok_or(WsError::Url(UrlError::UnsupportedUrlScheme))?;
     let addr = format!("{host}:{port}");
     let stream = TcpStream::connect(addr).await.map_err(WsError::Io)?;
-    tokio_tungstenite::client_async_tls_with_config(server_url, stream, None, None).await
+    let connector = if insecure {
+        //如果开启了不验证服务端ssl证书
+        let mode = client::uri_mode(&request_uri)?;
+        match mode {
+            Mode::Plain => Some(Connector::Plain),
+            Mode::Tls => {
+                let client_config = ClientConfig::builder()
+                    .with_safe_defaults()
+                    .with_custom_certificate_verifier(Arc::new(NoServerCertVerifier {}))
+                    .with_no_client_auth();
+                let client_config = Arc::new(client_config);
+                Some(Connector::Rustls(client_config))
+            }
+        }
+    } else {
+        None
+    };
+    tokio_tungstenite::client_async_tls_with_config(server_url, stream, None, connector).await
 }

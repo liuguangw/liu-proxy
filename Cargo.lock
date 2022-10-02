@@ -303,6 +303,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "futures-util",
+ "rustls",
  "thiserror",
  "tokio",
  "tokio-tungstenite",

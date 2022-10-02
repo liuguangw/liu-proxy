@@ -14,6 +14,9 @@ pub struct ProxyClientCommand {
     ///server url
     #[clap(long, short = 'S', value_parser, default_value_t = String::from("ws://127.0.0.1:1070"))]
     server_url: String,
+    ///skip ssl certificate verification
+    #[clap(long, value_parser, default_value_t = false)]
+    insecure: bool,
     ///custom host or ip for tcp connection
     #[clap(long, value_parser)]
     server_host: Option<String>,
@@ -22,7 +25,12 @@ pub struct ProxyClientCommand {
 impl AppCommand for ProxyClientCommand {
     fn execute(&self) {
         let listen_address = (self.address.as_str(), self.port);
-        let fut = proxy_client::execute(listen_address, &self.server_url, &self.server_host);
+        let fut = proxy_client::execute(
+            listen_address,
+            &self.server_url,
+            &self.server_host,
+            self.insecure,
+        );
         if let Err(err) = rt::block_on(fut) {
             panic!("{}", err)
         }
