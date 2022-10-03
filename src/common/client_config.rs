@@ -8,7 +8,9 @@ pub struct ClientConfig {
     pub port: u16,
     pub auth_token: String,
     pub server_url: String,
+    ///建立ssl连接时,是否跳过ssl证书验证
     pub insecure: bool,
+    ///指定ip或者host来建立tcp连接
     pub server_host: String,
 }
 
