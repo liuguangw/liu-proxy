@@ -33,20 +33,13 @@ pub async fn auth_handshake(
 async fn conn_websocket_server(
     config: &ClientConfig,
 ) -> WsResult<(WebSocketStream<MaybeTlsStream<TcpStream>>, Response)> {
-    if !config.insecure {
+    //常规模式
+    if config.server_host.is_empty() && !config.insecure {
+        //根据url进行连接
         return tokio_tungstenite::connect_async(&config.server_url).await;
     }
-    //以下是开启了ssl insecure的情况
     let request_uri = config.server_url.parse::<Uri>()?;
-    let port = request_uri
-        .port_u16()
-        .or_else(|| match request_uri.scheme_str() {
-            Some("wss") => Some(443),
-            Some("ws") => Some(80),
-            _ => None,
-        })
-        .ok_or(WsError::Url(UrlError::UnsupportedUrlScheme))?;
-    //server_host优先,其次是url
+    //获取连接地址: server_host优先,其次是url中的host
     let tcp_host = if config.server_host.is_empty() {
         match request_uri.host() {
             Some(d) => d,
@@ -55,9 +48,21 @@ async fn conn_websocket_server(
     } else {
         &config.server_host
     };
+    //port
+    let port = request_uri
+        .port_u16()
+        .or_else(|| match request_uri.scheme_str() {
+            Some("wss") => Some(443),
+            Some("ws") => Some(80),
+            _ => None,
+        })
+        .ok_or(WsError::Url(UrlError::UnsupportedUrlScheme))?;
+    //建立tcp连接
     let addr = format!("{tcp_host}:{port}");
     let stream = TcpStream::connect(addr).await.map_err(WsError::Io)?;
-    let connector = {
+    //tls connector
+    let connector = if config.insecure {
+        //跳过域名证书验证的配置
         let mode = client::uri_mode(&request_uri)?;
         match mode {
             Mode::Plain => Some(Connector::Plain),
@@ -70,6 +75,9 @@ async fn conn_websocket_server(
                 Some(Connector::Rustls(client_config))
             }
         }
+    } else {
+        //默认配置
+        None
     };
     tokio_tungstenite::client_async_tls_with_config(&config.server_url, stream, None, connector)
         .await
