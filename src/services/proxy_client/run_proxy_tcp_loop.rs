@@ -1,7 +1,7 @@
 use super::check_server_conn::check_server_conn;
 use super::proxy_error::ProxyError;
 use super::proxy_tcp::proxy_tcp;
-use crate::common::socket5::{self, ConnDest};
+use crate::common::socket5::{build_response, ConnDest};
 use futures_util::{SinkExt, StreamExt};
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
@@ -32,12 +32,7 @@ where
     };
     //写入socket5_response
     {
-        let addr_raw_data = conn_dest.to_raw_data();
-        let mut socket5_response = Vec::with_capacity(3 + addr_raw_data.len());
-        socket5_response.push(socket5::VERSION);
-        socket5_response.push(rep);
-        socket5_response.push(0);
-        socket5_response.extend_from_slice(&addr_raw_data);
+        let socket5_response = build_response(conn_dest, rep);
         if let Err(e) = tcp_stream.write_all(&socket5_response).await {
             return Err(ProxyError::io_err("write socket5_response", e));
         }

@@ -42,9 +42,11 @@ pub async fn execute(config_file: &str) -> Result<(), String> {
 }
 
 async fn run_accept_loop(listener: TcpListener, config: ClientConfig) {
-    //连接服务端测试连通性
+    //连接服务端,测试连通性
+    println!("check server status ...");
     match auth_handshake(&config, Duration::from_secs(8)).await {
         Ok(s) => {
+            println!("server status ok");
             let mut ws_stream = s.0;
             if let Err(e) = ws_stream.close(None).await {
                 eprintln!("close test websocket stream failed: {e}");

@@ -1,10 +1,13 @@
 use super::proxy_error::ProxyError;
 use super::proxy_handshake::proxy_handshake;
 use super::run_proxy_tcp_loop::run_proxy_tcp_loop;
-use crate::{common::ClientConfig, services::proxy_client::auth_handshake};
+use crate::{
+    common::{socket5::build_response, ClientConfig},
+    services::proxy_client::auth_handshake,
+};
 use futures_util::{SinkExt, StreamExt};
 use std::{net::SocketAddr, time::Duration};
-use tokio::net::TcpStream;
+use tokio::{io::AsyncWriteExt, net::TcpStream};
 
 ///处理连接逻辑
 pub async fn handle_connection(mut stream: TcpStream, addr: SocketAddr, config: ClientConfig) {
@@ -21,6 +24,12 @@ pub async fn handle_connection(mut stream: TcpStream, addr: SocketAddr, config: 
         Ok(s) => s.0,
         Err(e) => {
             eprintln!("{e}");
+            //socket 5 通知失败信息
+            let rep_code = 5;
+            let socket5_response = build_response(&conn_dest, rep_code);
+            if let Err(e1) = stream.write_all(&socket5_response).await {
+                eprintln!("write socket5_response failed: {e1}");
+            }
             return;
         }
     };
