@@ -1,9 +1,10 @@
 use crate::services::poll_message;
+use futures_util::StreamExt;
+use std::time::Duration;
 use thiserror::Error;
-use tokio::net::TcpStream;
-use tokio::time::{timeout, Duration};
+use tokio::time;
 use tokio_tungstenite::tungstenite::Error as WsErr;
-use tokio_tungstenite::WebSocketStream;
+use tokio_tungstenite::tungstenite::{Message, Result as WsResult};
 
 #[derive(Error, Debug)]
 pub enum AuthError {
@@ -17,17 +18,23 @@ pub enum AuthError {
     InvalidToken,
 }
 
-pub async fn check_auth_token(ws_stream: &mut WebSocketStream<TcpStream>) -> Result<(), AuthError> {
-    let timeout_duration = Duration::from_secs(5);
+pub async fn check_auth_token<T>(
+    ws_stream: &mut T,
+    auth_tokens: &[String],
+    timeout_duration: Duration,
+) -> Result<(), AuthError>
+where
+    T: StreamExt<Item = WsResult<Message>> + Unpin,
+{
     let auth_token =
-        match timeout(timeout_duration, poll_message::poll_text_message(ws_stream)).await {
+        match time::timeout(timeout_duration, poll_message::poll_text_message(ws_stream)).await {
             Ok(auth_token_result) => match auth_token_result? {
                 Some(s) => s,
                 None => return Err(AuthError::ClientClosed),
             },
             Err(_) => return Err(AuthError::Timeout),
         };
-    if auth_token != "123456" {
+    if !auth_tokens.contains(&auth_token) {
         return Err(AuthError::InvalidToken);
     }
     Ok(())

@@ -18,10 +18,7 @@ where
 {
     //把目标地址端口发给server,并检测server连接结果
     let rep = match check_server_conn(ws_reader, ws_writer, conn_dest).await {
-        Ok(_) => {
-            println!("server conn {conn_dest} success");
-            0
-        }
+        Ok(_) => 0,
         Err(e) => {
             println!("server conn {conn_dest} failed: {e}");
             if !e.is_ws_error() {
@@ -48,7 +45,7 @@ where
     if rep != 0 {
         return Ok(());
     }
-    println!("socket5 handshake success");
+    //println!("socket5 handshake success");
     // proxy
     proxy_tcp(ws_reader, ws_writer, tcp_stream).await
 }

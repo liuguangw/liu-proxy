@@ -7,6 +7,7 @@ pub enum AddressType {
     Domain,
 }
 
+///目标地址类型错误
 #[derive(Error, Debug)]
 #[error("invalid address type {0}")]
 pub struct ParseAddressTypeError(pub u8);

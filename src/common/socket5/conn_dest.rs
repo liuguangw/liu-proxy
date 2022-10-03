@@ -5,10 +5,12 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 
 ///连接目标地址
 pub enum ConnDestAddr {
+    ///IP地址
     Ip(IpAddr),
+    ///域名
     Domain(String),
 }
-///连接目标地址和端口
+///目标地址和端口信息
 pub struct ConnDest {
     pub addr: ConnDestAddr,
     pub port: u16,

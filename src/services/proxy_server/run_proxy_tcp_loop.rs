@@ -2,14 +2,14 @@ use super::io::ProxyConnectResult;
 use super::proxy_error::ProxyError;
 use super::proxy_tcp::proxy_tcp;
 use super::wait_conn_remote::wait_conn_remote;
-use crate::common::socket5::ConnDest;
+use crate::common::{socket5::ConnDest, ServerStream};
 use crate::services::poll_message;
 use futures_util::{SinkExt, StreamExt};
 use tokio::{net::TcpStream, time::Duration};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 pub async fn run_proxy_tcp_loop(
-    client_stream: WebSocketStream<TcpStream>,
+    client_stream: WebSocketStream<ServerStream<TcpStream>>,
 ) -> Result<(), ProxyError> {
     let (mut client_writer, mut client_reader) = client_stream.split();
     loop {
@@ -25,6 +25,7 @@ pub async fn run_proxy_tcp_loop(
             }
         };
         //指定超时时间, 执行connect
+        println!("server connect {conn_dest}");
         let timeout_duration = Duration::from_secs(5);
         let conn_result = wait_conn_remote(&conn_dest, timeout_duration).await;
         let conn_ret_msg = Message::from(&conn_result);

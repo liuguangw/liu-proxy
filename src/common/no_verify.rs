@@ -1,7 +1,7 @@
 use rustls::client::ServerCertVerified;
 use rustls::client::ServerCertVerifier;
 
-///不验证服务端证书
+///不验证服务端证书时,用于跳过验证
 pub struct NoServerCertVerifier {}
 
 impl ServerCertVerifier for NoServerCertVerifier {

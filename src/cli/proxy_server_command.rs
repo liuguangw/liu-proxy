@@ -5,19 +5,16 @@ use clap::Args;
 /// 服务端命令
 #[derive(Args)]
 pub struct ProxyServerCommand {
-    ///server host or ip
-    #[clap(long, short = 'H', value_parser, default_value_t = String::from("127.0.0.1"))]
-    address: String,
-    ///port
-    #[clap(long, short = 'P', value_parser, default_value_t = 1070)]
-    port: u16,
+    ///config file path
+    #[clap(long, short = 'f', value_parser, default_value_t = String::from("./config/config.toml"))]
+    config_file: String,
 }
 
 impl AppCommand for ProxyServerCommand {
     fn execute(&self) {
-        let fut = proxy_server::execute(&self.address, self.port);
+        let fut = proxy_server::execute(&self.config_file);
         if let Err(err) = rt::block_on(fut) {
-            panic!("{}", err)
+            eprintln!("{}", err);
         }
     }
 }

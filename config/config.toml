@@ -1,0 +1,14 @@
+[server]
+address = "0.0.0.0"
+port = 7008
+auth_tokens = ["123456"]
+use_ssl = false
+public_key_path = "./config/certs/localhost.crt"
+private_key_path = "./config/certs/localhost.key"
+[client]
+address = "127.0.0.1"
+port = 7009
+auth_token = "123456"
+server_url = "wss://localhost:7008"
+insecure = true
+server_host = ""

@@ -8,7 +8,6 @@ pub async fn wait_conn_remote(
     timeout_duration: Duration,
 ) -> ProxyConnectResult {
     let conn_addr = conn_dest.to_string();
-    println!("server connect {conn_addr}");
     let timeout_result = timeout(timeout_duration, TcpStream::connect(&conn_addr)).await;
     match timeout_result {
         Ok(conn_result) => match conn_result {
