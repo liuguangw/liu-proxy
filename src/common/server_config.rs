@@ -16,7 +16,7 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             address: "0.0.0.0".to_string(),
-            port: 7008,
+            port: 8001,
             auth_tokens: Vec::new(),
             use_ssl: false,
             public_key_path: String::default(),

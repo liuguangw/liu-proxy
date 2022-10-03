@@ -16,7 +16,7 @@ impl Default for ClientConfig {
     fn default() -> Self {
         Self {
             address: "127.0.0.1".to_string(),
-            port: 7009,
+            port: 8002,
             auth_token: String::default(),
             server_url: String::default(),
             insecure: false,
