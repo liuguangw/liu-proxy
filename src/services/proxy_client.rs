@@ -7,11 +7,11 @@ mod proxy_error;
 mod proxy_handshake;
 mod proxy_tcp;
 mod run_proxy_tcp_loop;
-use std::time::Duration;
 use crate::common::ClientConfig;
 use crate::services;
 use auth_handshake_ns::auth_handshake;
 pub use handle_connection::handle_connection as handle_connection_fn;
+use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::signal;
 
