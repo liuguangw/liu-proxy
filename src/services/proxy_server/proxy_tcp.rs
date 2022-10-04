@@ -33,13 +33,14 @@ where
 {
     loop {
         //读取客户端请求
-        let request_data = match poll_message::poll_binary_message(client_reader).await {
-            Some(msg_result) => match msg_result {
-                Ok(s) => s,
-                Err(e) => return Err(ProxyError::ws_err("read client request", e)),
-            },
-            None => return Err(ProxyError::ClientClosed),
-        };
+        let request_data =
+            match poll_message::poll_binary_message(&mut session, client_reader).await {
+                Some(msg_result) => match msg_result {
+                    Ok(s) => s,
+                    Err(e) => return Err(ProxyError::ws_err("read client request", e)),
+                },
+                None => return Err(ProxyError::ClientClosed),
+            };
         //把请求发给远端
         let request_result = match remote_writer.write(&request_data).await {
             Ok(_) => ProxyRequestResult::Ok,

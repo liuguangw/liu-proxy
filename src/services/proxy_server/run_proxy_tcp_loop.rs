@@ -13,7 +13,8 @@ pub async fn run_proxy_tcp_loop(
 ) -> Result<(), ProxyError> {
     loop {
         //读取客户端希望连接的地址、端口
-        let conn_dest = match poll_message::poll_binary_message(&mut msg_stream).await {
+        let conn_dest = match poll_message::poll_binary_message(&mut session, &mut msg_stream).await
+        {
             Some(msg_result) => match msg_result {
                 Ok(bytes) => match ConnDest::try_from_bytes(&bytes) {
                     Ok(s) => s,

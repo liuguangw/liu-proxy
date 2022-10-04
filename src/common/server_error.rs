@@ -8,8 +8,6 @@ use thiserror::Error;
 pub enum ServerError {
     #[error("load {0} failed: {1}")]
     Config(String, ConfigError),
-    #[error("wait signal failed: {0}")]
-    Signal(IoError),
     #[error("load ssl cert failed: {0}")]
     Cert(#[from] TlsServerConfigError),
     #[error("bind address failed: {0}")]

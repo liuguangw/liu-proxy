@@ -1,6 +1,6 @@
 use super::io::ProxyConnectResult;
+use super::poll_message;
 use crate::common::socket5::ConnDest;
-use crate::services::poll_message;
 use futures_util::{SinkExt, StreamExt};
 use thiserror::Error;
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
@@ -12,7 +12,7 @@ pub enum ProxyConnError {
     #[error("poll auth data failed: {0}")]
     Poll(WsError),
     ///连接出错
-    #[error("server connect failed: {0}")]
+    #[error("{0}")]
     Conn(String),
     ///超时
     #[error("server connect remote timeout")]
@@ -28,20 +28,18 @@ impl ProxyConnError {
     }
 }
 
-pub async fn check_server_conn<T, U>(
-    ws_reader: &mut T,
-    ws_writer: &mut U,
+pub async fn check_server_conn<T>(
+    ws_stream: &mut T,
     conn_dest: &ConnDest,
 ) -> Result<(), ProxyConnError>
 where
-    T: StreamExt<Item = Result<Message, WsError>> + Unpin,
-    U: SinkExt<Message, Error = WsError> + Unpin,
+    T: StreamExt<Item = Result<Message, WsError>> + SinkExt<Message, Error = WsError> + Unpin,
 {
     let conn_msg = Message::binary(conn_dest.to_raw_data());
-    if let Err(e) = ws_writer.send(conn_msg).await {
+    if let Err(e) = ws_stream.send(conn_msg).await {
         return Err(ProxyConnError::Send(e));
     }
-    match poll_message::poll_binary_message(ws_reader).await {
+    match poll_message::poll_binary_message(ws_stream).await {
         Ok(option_s) => match option_s {
             Some(binary_data) => parse_server_conn_result(&binary_data),
             None => Err(ProxyConnError::ServerClosed),

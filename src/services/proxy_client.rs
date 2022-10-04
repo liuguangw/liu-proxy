@@ -1,17 +1,17 @@
 mod auth_handshake_ns;
-mod check_auth_token;
 mod check_server_conn;
 mod handle_connection;
 mod io;
+mod poll_message;
 mod proxy_error;
 mod proxy_handshake;
 mod proxy_tcp;
 mod run_proxy_tcp_loop;
+
 use crate::common::ClientConfig;
 use crate::services;
 use auth_handshake_ns::auth_handshake;
-pub use handle_connection::handle_connection as handle_connection_fn;
-use std::time::Duration;
+use handle_connection::handle_connection as handle_connection_fn;
 use tokio::net::TcpListener;
 use tokio::signal;
 
@@ -27,7 +27,7 @@ pub async fn execute(config_file: &str) -> Result<(), String> {
         Ok(s) => s,
         Err(e) => return Err(format!("bind {addr} failed: {e}")),
     };
-    println!("Socket5 Listening on: {addr}");
+    log::info!("Socket5 Listening on: {addr}");
     //let server_address = server_url.to_string();
     tokio::select! {
         _ = run_accept_loop(listener, config) =>(),
@@ -35,7 +35,7 @@ pub async fn execute(config_file: &str) -> Result<(), String> {
             if let Err(e) = output2{
                 return Err(format!("wait signal failed: {e}"));
             }
-            println!(" - proxy server shutdown");
+            log::info!(" - proxy server shutdown");
         },
     };
     Ok(())
@@ -43,17 +43,18 @@ pub async fn execute(config_file: &str) -> Result<(), String> {
 
 async fn run_accept_loop(listener: TcpListener, config: ClientConfig) {
     //连接服务端,测试连通性
-    println!("check server status ...");
-    match auth_handshake(&config, Duration::from_secs(8)).await {
+    log::info!("check server status ...");
+    match auth_handshake(&config).await {
         Ok(s) => {
-            println!("server status ok");
+            log::info!("server status ok");
+            //关闭测试连接
             let mut ws_stream = s.0;
             if let Err(e) = ws_stream.close(None).await {
-                eprintln!("close test websocket stream failed: {e}");
+                log::warn!("close test websocket stream failed: {e}");
             }
         }
         Err(e) => {
-            eprintln!("{e}");
+            log::error!("{e}");
             return;
         }
     };

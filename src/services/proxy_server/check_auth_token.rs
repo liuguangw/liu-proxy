@@ -1,40 +1,29 @@
-use super::poll_message;
-use actix_ws::{Message, ProtocolError};
-use futures_util::StreamExt;
-use std::time::Duration;
-use thiserror::Error;
-use tokio::time;
+use actix_web::{http::header, HttpRequest};
 
-#[derive(Error, Debug)]
-pub enum AuthError {
-    #[error("Error during poll auth_token, {0}")]
-    WsErr(#[from] ProtocolError),
-    #[error("client closed connection")]
-    ClientClosed,
-    #[error("wait auth_token timeout")]
-    Timeout,
-    #[error("invalid auth token")]
-    InvalidToken,
-}
-
-pub async fn check_auth_token<T>(
-    ws_stream: &mut T,
-    auth_tokens: &[String],
-    timeout_duration: Duration,
-) -> Result<(), AuthError>
-where
-    T: StreamExt<Item = Result<Message, ProtocolError>> + Unpin,
-{
-    let auth_token =
-        match time::timeout(timeout_duration, poll_message::poll_text_message(ws_stream)).await {
-            Ok(option_token_result) => match option_token_result {
-                Some(s) => s?,
-                None => return Err(AuthError::ClientClosed),
-            },
-            Err(_) => return Err(AuthError::Timeout),
-        };
-    if !auth_tokens.contains(&auth_token) {
-        return Err(AuthError::InvalidToken);
+pub fn check_auth_token(req: &HttpRequest, auth_tokens: &[String]) -> bool {
+    //初步检测
+    match req.headers().get(header::UPGRADE) {
+        Some(s) if s == "websocket" => (),
+        _ => return false,
+    };
+    let authorization_value = match req.headers().get(header::AUTHORIZATION) {
+        Some(s) => match s.to_str() {
+            Ok(s) => s,
+            Err(_) => return false,
+        },
+        None => return false,
+    };
+    //log::info!("check1#{authorization_value}");
+    if !authorization_value.starts_with("Bearer ") {
+        return false;
     }
-    Ok(())
+    //获取token
+    let token = &authorization_value[7..];
+    //log::info!("check2#{token}");
+    for t in auth_tokens {
+        if t == token {
+            return true;
+        }
+    }
+    false
 }

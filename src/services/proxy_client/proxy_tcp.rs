@@ -1,6 +1,7 @@
 use super::io::{ProxyRequestResult, ProxyResponseResult};
+use super::poll_message;
 use super::proxy_error::ProxyError;
-use crate::services::{poll_message, read_raw_data};
+use crate::services::read_raw_data;
 use futures_util::{SinkExt, StreamExt};
 use std::io::ErrorKind;
 use tokio::{
@@ -8,20 +9,17 @@ use tokio::{
     net::TcpStream,
 };
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
-pub async fn proxy_tcp<T, U>(
-    ws_reader: &mut T,
-    ws_writer: &mut U,
+pub async fn proxy_tcp(
+    ws_stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
     tcp_stream: &mut TcpStream,
-) -> Result<(), ProxyError>
-where
-    T: StreamExt<Item = Result<Message, WsError>> + Unpin,
-    U: SinkExt<Message, Error = WsError> + Unpin,
-{
+) -> Result<(), ProxyError> {
     let (mut tcp_reader, mut tcp_writer) = tcp_stream.split();
+    let (mut ws_writer, mut ws_reader) = ws_stream.split();
     tokio::select! {
-        request_result = read_request_loop(&mut tcp_reader, ws_writer)=>request_result,
-        response_result = read_response_loop(ws_reader, &mut tcp_writer)=>response_result,
+        request_result = read_request_loop(&mut tcp_reader, &mut ws_writer)=>request_result,
+        response_result = read_response_loop(&mut ws_reader, &mut tcp_writer)=>response_result,
     }
 }
 
