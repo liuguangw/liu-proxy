@@ -1,5 +1,5 @@
+use bytes::{BufMut, Bytes, BytesMut};
 use tokio::net::TcpStream;
-use tokio_tungstenite::tungstenite::Message;
 const MESSAGE_TYPE: u8 = 1;
 
 ///代表server连接远端的结果
@@ -13,25 +13,18 @@ pub enum ProxyConnectResult {
 }
 impl ProxyConnectResult {
     ///序列化
-    pub fn to_vec(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Bytes {
         match self {
-            Self::Ok(_) => vec![MESSAGE_TYPE, 0],
+            Self::Ok(_) => Bytes::from_static(&[MESSAGE_TYPE, 0]),
             Self::Err(e) => {
                 let error_message = e.to_string();
-                let mut raw_data = Vec::with_capacity(2 + error_message.len());
-                raw_data.push(MESSAGE_TYPE);
-                raw_data.push(1);
+                let mut raw_data = BytesMut::with_capacity(2 + error_message.len());
+                raw_data.put_u8(MESSAGE_TYPE);
+                raw_data.put_u8(1);
                 raw_data.extend_from_slice(error_message.as_bytes());
-                raw_data
+                raw_data.into()
             }
-            Self::Timeout => vec![MESSAGE_TYPE, 2],
+            Self::Timeout => Bytes::from_static(&[MESSAGE_TYPE, 2]),
         }
-    }
-}
-
-impl From<&ProxyConnectResult> for Message {
-    fn from(action_result: &ProxyConnectResult) -> Self {
-        let data = action_result.to_vec();
-        Self::Binary(data)
     }
 }

@@ -1,15 +1,14 @@
-use crate::services::poll_message;
+use super::poll_message;
+use actix_ws::{Message, ProtocolError};
 use futures_util::StreamExt;
 use std::time::Duration;
 use thiserror::Error;
 use tokio::time;
-use tokio_tungstenite::tungstenite::Error as WsErr;
-use tokio_tungstenite::tungstenite::{Message, Result as WsResult};
 
 #[derive(Error, Debug)]
 pub enum AuthError {
     #[error("Error during poll auth_token, {0}")]
-    WsErr(#[from] WsErr),
+    WsErr(#[from] ProtocolError),
     #[error("client closed connection")]
     ClientClosed,
     #[error("wait auth_token timeout")]
@@ -24,12 +23,12 @@ pub async fn check_auth_token<T>(
     timeout_duration: Duration,
 ) -> Result<(), AuthError>
 where
-    T: StreamExt<Item = WsResult<Message>> + Unpin,
+    T: StreamExt<Item = Result<Message, ProtocolError>> + Unpin,
 {
     let auth_token =
         match time::timeout(timeout_duration, poll_message::poll_text_message(ws_stream)).await {
-            Ok(auth_token_result) => match auth_token_result? {
-                Some(s) => s,
+            Ok(option_token_result) => match option_token_result {
+                Some(s) => s?,
                 None => return Err(AuthError::ClientClosed),
             },
             Err(_) => return Err(AuthError::Timeout),

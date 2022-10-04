@@ -6,6 +6,7 @@ use serde::Deserialize;
 pub struct ServerConfig {
     pub address: String,
     pub port: u16,
+    pub path: String,
     pub auth_tokens: Vec<String>,
     pub use_ssl: bool,
     pub public_key_path: String,
@@ -17,6 +18,7 @@ impl Default for ServerConfig {
         Self {
             address: "0.0.0.0".to_string(),
             port: 8001,
+            path: "/proxy/ws".to_string(),
             auth_tokens: Vec::new(),
             use_ssl: false,
             public_key_path: String::default(),

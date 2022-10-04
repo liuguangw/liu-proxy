@@ -1,15 +1,19 @@
+use bytes::{Bytes, BytesMut};
 use std::io::{Error as IoError, ErrorKind};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-pub async fn read_raw<T>(stream: &mut T) -> Result<Vec<u8>, IoError>
+const BUFF_SIZE: usize = 1024;
+pub async fn read_raw<T>(stream: &mut T) -> Result<Bytes, IoError>
 where
     T: AsyncRead + Unpin,
 {
-    let mut buf = vec![0; 1024];
-    let n = stream.read(&mut buf).await?;
+    let mut buff = BytesMut::zeroed(BUFF_SIZE);
+    let n = stream.read(&mut buff).await?;
     if n == 0 {
         return Err(ErrorKind::UnexpectedEof.into());
     };
-    buf.truncate(n);
-    Ok(buf)
+    if n < BUFF_SIZE {
+        buff.truncate(n);
+    }
+    Ok(buff.into())
 }

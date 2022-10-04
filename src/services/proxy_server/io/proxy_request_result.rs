@@ -1,4 +1,4 @@
-use tokio_tungstenite::tungstenite::Message;
+use bytes::{BufMut, Bytes, BytesMut};
 const MESSAGE_TYPE: u8 = 2;
 
 ///代表远端请求的结果
@@ -13,27 +13,21 @@ pub enum ProxyRequestResult {
 
 impl ProxyRequestResult {
     ///序列化
-    pub fn to_vec(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Bytes {
         match self {
-            Self::Ok => vec![MESSAGE_TYPE, 0],
+            Self::Ok => Bytes::from_static(&[MESSAGE_TYPE, 0]),
             Self::Err(e) => {
                 let error_message = e.to_string();
-                let mut raw_data = Vec::with_capacity(2 + error_message.len());
-                raw_data.push(MESSAGE_TYPE);
-                raw_data.push(1);
+                let mut raw_data = BytesMut::with_capacity(2 + error_message.len());
+                raw_data.put_u8(MESSAGE_TYPE);
+                raw_data.put_u8(1);
                 raw_data.extend_from_slice(error_message.as_bytes());
-                raw_data
+                raw_data.into()
             }
-            Self::Closed => vec![MESSAGE_TYPE, 2],
+            Self::Closed => Bytes::from_static(&[MESSAGE_TYPE, 2]),
         }
     }
     pub fn is_ok(&self) -> bool {
         matches!(self, Self::Ok)
-    }
-}
-impl From<&ProxyRequestResult> for Message {
-    fn from(action_result: &ProxyRequestResult) -> Self {
-        let data = action_result.to_vec();
-        Self::Binary(data)
     }
 }
