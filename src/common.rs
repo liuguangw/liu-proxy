@@ -1,5 +1,7 @@
 mod client_config;
 mod config_error;
+///消息模块
+pub mod msg;
 mod no_verify;
 mod server_config;
 mod server_error;

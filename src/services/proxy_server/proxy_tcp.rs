@@ -1,9 +1,9 @@
-use super::io::{ProxyRequestResult, ProxyResponseResult};
-use super::poll_message;
 use super::proxy_error::ProxyError;
+use super::{poll_message, send_message};
+use crate::common::msg::server::{ProxyResponseResult, RequestFail};
+use crate::common::msg::ClientMessage;
 use crate::services::read_raw_data;
 use actix_ws::{MessageStream, Session};
-use bytes::Bytes;
 use std::io::ErrorKind;
 use tokio::{
     io::{AsyncRead, AsyncWrite, AsyncWriteExt},
@@ -33,31 +33,30 @@ where
 {
     loop {
         //读取客户端请求
-        let request_data =
-            match poll_message::poll_binary_message(&mut session, client_reader).await {
-                Some(msg_result) => match msg_result {
-                    Ok(s) => s,
-                    Err(e) => return Err(ProxyError::ws_err("read client request", e)),
-                },
-                None => return Err(ProxyError::ClientClosed),
-            };
-        //把请求发给远端
-        let request_result = match remote_writer.write(&request_data).await {
-            Ok(_) => ProxyRequestResult::Ok,
-            Err(e) => {
-                if e.kind() == ErrorKind::UnexpectedEof {
-                    ProxyRequestResult::Closed
-                } else {
-                    ProxyRequestResult::Err(e)
-                }
+        let message = poll_message::poll_message(&mut session, client_reader).await?;
+        let request_data = match message {
+            ClientMessage::Request(s) => s.0,
+            ClientMessage::DisConn => {
+                //断开远端
+                if let Err(e) = remote_writer.shutdown().await {
+                    log::error!("disconn remote failed: {e}")
+                };
+                break;
+            }
+            _ => {
+                //消息类型不对
+                _ = session.close(None).await;
+                return Err(ProxyError::NotRequestMessage);
             }
         };
-        //把write远端的结果发给客户端
-        write_client_msg(&mut session, request_result.to_bytes()).await?;
-        //request失败跳出循环
-        if !request_result.is_ok() {
+        //把请求发给远端
+        if let Err(e) = remote_writer.write(&request_data).await {
+            let req_fail_msg = RequestFail(e.to_string());
+            //把write远端的失败信息发给客户端
+            send_message::send_message(&mut session, req_fail_msg).await?;
+            //request失败跳出循环
             break;
-        }
+        };
     }
     Ok(())
 }
@@ -71,30 +70,24 @@ where
     T: AsyncRead + Unpin,
 {
     loop {
-        let response_result = match read_raw_data::read_raw(remote_reader).await {
+        let mut read_response_ok = true;
+        let response_result_msg = match read_raw_data::read_raw(remote_reader).await {
             Ok(data) => ProxyResponseResult::Ok(data),
             Err(e) => {
+                read_response_ok = false;
                 if e.kind() == ErrorKind::UnexpectedEof {
                     ProxyResponseResult::Closed
                 } else {
-                    ProxyResponseResult::Err(e)
+                    ProxyResponseResult::Err(e.to_string())
                 }
             }
         };
         //把read远端的结果发给客户端
-        write_client_msg(&mut session, response_result.to_bytes()).await?;
+        send_message::send_message(&mut session, response_result_msg).await?;
         //response失败跳出循环
-        if !response_result.is_ok() {
+        if !read_response_ok {
             break;
         }
-    }
-    Ok(())
-}
-
-///把消息发送到客户端
-async fn write_client_msg(session: &mut Session, msg: Bytes) -> Result<(), ProxyError> {
-    if session.binary(msg).await.is_err() {
-        return Err(ProxyError::ClientClosed);
     }
     Ok(())
 }

@@ -1,12 +1,11 @@
 mod check_auth_token;
 mod handle_connection;
-mod io;
 mod poll_message;
 mod proxy_error;
 mod proxy_tcp;
 mod run_proxy_tcp_loop;
+mod send_message;
 mod tls;
-mod wait_conn_remote;
 mod ws_handler_ns;
 
 use crate::common::{ServerConfig, ServerError};

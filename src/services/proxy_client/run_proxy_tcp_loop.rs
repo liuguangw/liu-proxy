@@ -12,7 +12,10 @@ pub async fn run_proxy_tcp_loop(
 ) -> Result<(), ProxyError> {
     //把目标地址端口发给server,并检测server连接结果
     let rep = match check_server_conn(&mut ws_stream, conn_dest).await {
-        Ok(_) => 0,
+        Ok(_) => {
+            log::info!("server conn {conn_dest} ok");
+            0
+        },
         Err(e) => {
             log::error!("server conn {conn_dest} failed: {e}");
             if !e.is_ws_error() {
@@ -34,9 +37,10 @@ pub async fn run_proxy_tcp_loop(
                     log::error!("close conn failed: {e1}");
                 }
             }
-            return Err(ProxyError::io_err("write socket5_response", e));
+            return Err(ProxyError::Socket5Resp(e));
         }
     }
+    //server连接remote失败
     if rep != 0 {
         return Ok(());
     }

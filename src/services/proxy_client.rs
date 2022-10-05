@@ -1,12 +1,12 @@
 mod auth_handshake_ns;
 mod check_server_conn;
 mod handle_connection;
-mod io;
 mod poll_message;
 mod proxy_error;
 mod proxy_handshake;
 mod proxy_tcp;
 mod run_proxy_tcp_loop;
+mod send_message;
 
 use crate::common::{ClientConfig, WebsocketRequest};
 use crate::services;

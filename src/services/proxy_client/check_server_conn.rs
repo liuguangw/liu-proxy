@@ -1,63 +1,54 @@
-use super::io::ProxyConnectResult;
 use super::poll_message;
-use crate::common::socket5::ConnDest;
-use futures_util::{SinkExt, StreamExt};
+use super::poll_message::PollMessageError;
+use crate::common::{
+    msg::client::Connect, msg::server::ConnectResult, msg::ServerMessage, socket5::ConnDest,
+};
+use futures_util::{Sink, Stream};
 use thiserror::Error;
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 #[derive(Error, Debug)]
-pub enum ProxyConnError {
-    #[error("send auth data failed: {0}")]
-    Send(WsError),
-    #[error("poll auth data failed: {0}")]
-    Poll(WsError),
-    ///连接出错
+pub enum ConnectError {
+    #[error("send conn msg failed: {0}")]
+    Send(#[from] WsError),
+    #[error("poll conn message failed: {0}")]
+    PollMessage(#[from] PollMessageError),
+    #[error("not connection message")]
+    NotConnMessage,
+    //服务端返回的连接失败信息
     #[error("{0}")]
-    Conn(String),
+    ConnErr(String),
     ///超时
     #[error("server connect remote timeout")]
     Timeout,
-    #[error("connection closed by server")]
-    ServerClosed,
-}
-
-impl ProxyConnError {
-    ///判断客户端与服务端之间的连接是否有错误
-    pub fn is_ws_error(&self) -> bool {
-        matches!(self, Self::Send(_) | Self::Poll(_) | Self::ServerClosed)
-    }
 }
 
 pub async fn check_server_conn<T>(
     ws_stream: &mut T,
     conn_dest: &ConnDest,
-) -> Result<(), ProxyConnError>
+) -> Result<(), ConnectError>
 where
-    T: StreamExt<Item = Result<Message, WsError>> + SinkExt<Message, Error = WsError> + Unpin,
+    T: Stream<Item = Result<Message, WsError>> + Sink<Message, Error = WsError> + Unpin,
 {
-    let conn_msg = Message::binary(conn_dest.to_raw_data());
-    if let Err(e) = ws_stream.send(conn_msg).await {
-        return Err(ProxyConnError::Send(e));
-    }
-    match poll_message::poll_binary_message(ws_stream).await {
-        Ok(option_s) => match option_s {
-            Some(binary_data) => parse_server_conn_result(&binary_data),
-            None => Err(ProxyConnError::ServerClosed),
+    let conn_msg = Connect(conn_dest.to_string());
+    super::send_message::send_message(ws_stream, conn_msg).await?;
+    let message = poll_message::poll_message(ws_stream).await?;
+    match message {
+        ServerMessage::ConnResult(conn_result) => match conn_result {
+            ConnectResult::Ok => Ok(()),
+            ConnectResult::Err(e) => Err(ConnectError::ConnErr(e)),
+            ConnectResult::Timeout => Err(ConnectError::Timeout),
         },
-        Err(e) => Err(ProxyConnError::Poll(e)),
+        _ => Err(ConnectError::NotConnMessage),
     }
 }
 
-fn parse_server_conn_result(binary_data: &[u8]) -> Result<(), ProxyConnError> {
-    let msg_type = binary_data[0];
-    if msg_type != 1 {
-        let error_message = format!("invalid msg_type: {msg_type}");
-        return Err(ProxyConnError::Conn(error_message));
-    }
-    let conn_result = ProxyConnectResult::from(&binary_data[1..]);
-    match conn_result {
-        ProxyConnectResult::Ok => Ok(()),
-        ProxyConnectResult::Err(e) => Err(ProxyConnError::Conn(e)),
-        ProxyConnectResult::Timeout => Err(ProxyConnError::Timeout),
+impl ConnectError {
+    pub fn is_ws_error(&self) -> bool {
+        match self {
+            ConnectError::Send(_) => true,
+            ConnectError::PollMessage(e) => e.is_ws_error(),
+            _ => false,
+        }
     }
 }

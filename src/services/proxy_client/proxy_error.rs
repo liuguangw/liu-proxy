@@ -1,39 +1,25 @@
-use std::io::Error as IoErr;
+use super::poll_message::PollMessageError;
+use std::io::Error as IoError;
 use thiserror::Error;
-use tokio_tungstenite::tungstenite::Error as WsErr;
+use tokio_tungstenite::tungstenite::Error as WsError;
 
 ///客户端proxy错误定义
 #[derive(Error, Debug)]
 pub enum ProxyError {
-    #[error("{0} failed: {1}")]
-    WsErr(String, WsErr),
-    #[error("{0} failed: {1}")]
-    IoErr(String, IoErr),
-    ///客户端主动断开本地socket5服务器
-    #[error("client closed")]
-    ClientClosed,
-    ///服务端主动关闭了连接
-    #[error("server closed")]
-    ServerClosed,
-    ///远端主动关闭了连接
-    #[error("remote closed")]
-    RemoteClosed,
-    ///
-    #[error("server write request failed: {0}")]
-    RequestErr(String),
-    ///
-    #[error("server read response failed: {0}")]
-    ResponseErr(String),
-    ///
-    #[error("invalid ret message type {0}")]
-    InvalidRetMsgType(u8),
-}
-
-impl ProxyError {
-    pub fn ws_err(tip: &str, e: WsErr) -> Self {
-        Self::WsErr(tip.to_string(), e)
-    }
-    pub fn io_err(tip: &str, e: IoErr) -> Self {
-        Self::IoErr(tip.to_string(), e)
-    }
+    #[error("write socket5_response failed: {0}")]
+    Socket5Resp(IoError),
+    #[error("read request failed: {0}")]
+    ReadRequest(IoError),
+    #[error("write response failed: {0}")]
+    WriteResponse(IoError),
+    #[error("send request failed: {0}")]
+    SendRequest(WsError),
+    #[error("read response failed: {0}")]
+    PollMessage(PollMessageError),
+    #[error("invalid server message")]
+    InvalidServerMessage,
+    #[error("server request failed: {0}")]
+    ServerRequest(String),
+    #[error("server fetch response failed: {0}")]
+    ServerResponse(String),
 }

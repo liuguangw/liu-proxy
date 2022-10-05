@@ -1,8 +1,10 @@
-use super::io::{ProxyRequestResult, ProxyResponseResult};
 use super::poll_message;
 use super::proxy_error::ProxyError;
+use crate::common::msg::client::ProxyRequest;
+use crate::common::msg::{server::ProxyResponseResult, ClientMessage, ServerMessage};
 use crate::services::read_raw_data;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::future::Either;
+use futures_util::{Sink, Stream, StreamExt};
 use std::io::ErrorKind;
 use tokio::{
     io::{AsyncRead, AsyncWrite, AsyncWriteExt},
@@ -27,64 +29,69 @@ pub async fn proxy_tcp(
 async fn read_request_loop<T, U>(tcp_reader: &mut T, ws_writer: &mut U) -> Result<(), ProxyError>
 where
     T: AsyncRead + Unpin,
-    U: SinkExt<Message, Error = WsError> + Unpin,
+    U: Sink<Message, Error = WsError> + Unpin,
 {
     loop {
+        let mut is_disconn = false;
         //读取客户端请求
-        let request_data = match read_raw_data::read_raw(tcp_reader).await {
-            Ok(data) => data,
+        let client2_msg = match read_raw_data::read_raw(tcp_reader).await {
+            //客户端的请求
+            Ok(data) => Either::Left(ProxyRequest(data)),
             Err(e) => {
+                //客户端断开socket5
                 if e.kind() == ErrorKind::UnexpectedEof {
-                    return Err(ProxyError::ClientClosed);
+                    is_disconn = true;
+                    Either::Right(ClientMessage::DisConn)
                 } else {
-                    return Err(ProxyError::io_err("read client request", e));
+                    return Err(ProxyError::ReadRequest(e));
                 }
             }
         };
         //把请求发给服务端
-        let request_msg = Message::binary(request_data);
-        if let Err(e) = ws_writer.send(request_msg).await {
-            return Err(ProxyError::ws_err("send request to server", e));
+        let send_result = match client2_msg {
+            Either::Left(request_msg) => {
+                super::send_message::send_message(ws_writer, request_msg).await
+            }
+            Either::Right(disconn_msg) => {
+                super::send_message::send_message(ws_writer, disconn_msg).await
+            }
+        };
+        send_result.map_err(ProxyError::SendRequest)?;
+        if is_disconn {
+            break;
         }
     }
+    Ok(())
 }
 
 ///将响应给客户端
 async fn read_response_loop<T, U>(ws_reader: &mut T, tcp_writer: &mut U) -> Result<(), ProxyError>
 where
-    T: StreamExt<Item = Result<Message, WsError>> + Unpin,
+    T: Stream<Item = Result<Message, WsError>> + Unpin,
     U: AsyncWrite + Unpin,
 {
     loop {
-        let response_data = match poll_message::poll_binary_message(ws_reader).await {
-            Ok(option_data) => match option_data {
-                Some(data) => data,
-                None => return Err(ProxyError::ServerClosed),
+        let message = poll_message::poll_message(ws_reader)
+            .await
+            .map_err(ProxyError::PollMessage)?;
+        let response_data = match message {
+            //类型错误, 此时不应该收到这种消息
+            ServerMessage::ConnResult(_) => return Err(ProxyError::InvalidServerMessage),
+            ServerMessage::ResponseResult(response_result) => match response_result {
+                //得到response
+                ProxyResponseResult::Ok(s) => s,
+                //server读取response失败
+                ProxyResponseResult::Err(e) => return Err(ProxyError::ServerResponse(e)),
+                //远端关闭了与server之间的连接
+                ProxyResponseResult::Closed => break,
             },
-            Err(e) => return Err(ProxyError::ws_err("read server response", e)),
+            //server发送request到远端失败
+            ServerMessage::RequestFail(e) => return Err(ProxyError::ServerRequest(e.0)),
         };
-        let msg_type = response_data[0];
-        if msg_type == 2 {
-            //request ret
-            let request_ret_result = ProxyRequestResult::from(&response_data[1..]);
-            match request_ret_result {
-                ProxyRequestResult::Ok => (),
-                ProxyRequestResult::Err(e) => return Err(ProxyError::RequestErr(e)),
-                ProxyRequestResult::Closed => return Err(ProxyError::RemoteClosed),
-            };
-        } else if msg_type == 3 {
-            //response ret
-            let response_ret_result = ProxyResponseResult::from(&response_data[1..]);
-            let data = match response_ret_result {
-                ProxyResponseResult::Ok(data) => data,
-                ProxyResponseResult::Err(e) => return Err(ProxyError::ResponseErr(e)),
-                ProxyResponseResult::Closed => return Err(ProxyError::RemoteClosed),
-            };
-            if let Err(err) = tcp_writer.write(&data).await {
-                return Err(ProxyError::io_err("write response", err));
-            }
-        } else {
-            return Err(ProxyError::InvalidRetMsgType(msg_type));
+        //dbg!(&response_data);
+        if let Err(e) = tcp_writer.write(&response_data).await {
+            return Err(ProxyError::WriteResponse(e));
         }
     }
+    Ok(())
 }
