@@ -8,7 +8,7 @@ mod proxy_handshake;
 mod proxy_tcp;
 mod run_proxy_tcp_loop;
 
-use crate::common::ClientConfig;
+use crate::common::{ClientConfig, WebsocketRequest};
 use crate::services;
 use auth_handshake_ns::auth_handshake;
 use handle_connection::handle_connection as handle_connection_fn;
@@ -42,9 +42,16 @@ pub async fn execute(config_file: &str) -> Result<(), String> {
 }
 
 async fn run_accept_loop(listener: TcpListener, config: ClientConfig) {
+    let ws_request = match WebsocketRequest::try_from(&config) {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!("{e}");
+            return;
+        }
+    };
     //连接服务端,测试连通性
     log::info!("check server status ...");
-    match auth_handshake(&config).await {
+    match auth_handshake(&ws_request).await {
         Ok(s) => {
             log::info!("server status ok");
             //关闭测试连接
@@ -66,6 +73,6 @@ async fn run_accept_loop(listener: TcpListener, config: ClientConfig) {
                 continue;
             }
         };
-        tokio::spawn(handle_connection_fn(stream, addr, config.clone()));
+        tokio::spawn(handle_connection_fn(stream, addr, ws_request.clone()));
     }
 }

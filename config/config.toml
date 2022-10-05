@@ -11,5 +11,5 @@ address = "127.0.0.1"
 port = 8002
 auth_token = "123456"
 server_url = "ws://localhost:8001/proxy/ws"
+server_ip = ""
 insecure = false
-server_host = ""

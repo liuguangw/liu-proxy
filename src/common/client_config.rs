@@ -8,10 +8,10 @@ pub struct ClientConfig {
     pub port: u16,
     pub auth_token: String,
     pub server_url: String,
+    ///指定ip来建立tcp连接
+    pub server_ip: String,
     ///建立ssl连接时,是否跳过ssl证书验证
     pub insecure: bool,
-    ///指定ip或者host来建立tcp连接
-    pub server_host: String,
 }
 
 impl Default for ClientConfig {
@@ -21,8 +21,8 @@ impl Default for ClientConfig {
             port: 8002,
             auth_token: String::default(),
             server_url: String::default(),
+            server_ip: String::default(),
             insecure: false,
-            server_host: String::default(),
         }
     }
 }

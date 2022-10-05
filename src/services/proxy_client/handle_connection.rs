@@ -2,14 +2,18 @@ use super::proxy_error::ProxyError;
 use super::proxy_handshake::proxy_handshake;
 use super::run_proxy_tcp_loop::run_proxy_tcp_loop;
 use crate::{
-    common::{socket5::build_response, ClientConfig},
+    common::{socket5::build_response, WebsocketRequest},
     services::proxy_client::auth_handshake,
 };
 use std::net::SocketAddr;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 
 ///处理连接逻辑
-pub async fn handle_connection(mut stream: TcpStream, addr: SocketAddr, config: ClientConfig) {
+pub async fn handle_connection(
+    mut stream: TcpStream,
+    addr: SocketAddr,
+    ws_request: WebsocketRequest,
+) {
     //socket5初步握手,获取目标地址,端口
     let conn_dest = match proxy_handshake(&mut stream).await {
         Ok(s) => s,
@@ -19,7 +23,7 @@ pub async fn handle_connection(mut stream: TcpStream, addr: SocketAddr, config: 
         }
     };
     //向服务端发起websocket连接,并进行认证
-    let ws_stream = match auth_handshake(&config).await {
+    let ws_stream = match auth_handshake(&ws_request).await {
         Ok(s) => s.0,
         Err(e) => {
             log::error!("{e}");
