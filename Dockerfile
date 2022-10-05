@@ -6,6 +6,6 @@ RUN cargo install --path .
 FROM debian:buster-slim
 WORKDIR /home/liu-proxy
 COPY --from=builder /usr/local/cargo/bin/liu-proxy /usr/local/bin/
-COPY --from=builder /usr/src/liu-proxy/config /home/liu-proxy/
+COPY --from=builder /usr/src/liu-proxy/config /usr/src/liu-proxy/web /home/liu-proxy/
 EXPOSE 8001
 CMD ["liu-proxy", "server"]

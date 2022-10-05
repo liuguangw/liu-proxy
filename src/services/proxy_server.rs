@@ -51,7 +51,7 @@ pub async fn execute(config_file: &str) -> Result<(), ServerError> {
 async fn error_404_handler(req_method: Method) -> Result<impl Responder, actix_web::Error> {
     match req_method {
         Method::GET => {
-            let file = NamedFile::open_async("./config/404.html").await?;
+            let file = NamedFile::open_async("./web/404.html").await?;
             let resp = file.customize().with_status(StatusCode::NOT_FOUND);
             Ok(Either::Left(resp))
         }
@@ -63,7 +63,7 @@ fn configure_app(cfg: &mut web::ServiceConfig, config: &web::Data<ServerConfig>)
     cfg.route(&config.path, web::get().to(ws_handler))
         //挂载静态文件夹
         .service(
-            Files::new("/", "./config/public")
+            Files::new("/", "./web/public")
                 .prefer_utf8(true)
                 .redirect_to_slash_directory()
                 .index_file("index.html"),
