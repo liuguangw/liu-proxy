@@ -15,7 +15,7 @@ pub async fn run_proxy_tcp_loop(
         Ok(_) => {
             log::info!("server conn {conn_dest} ok");
             0
-        },
+        }
         Err(e) => {
             log::error!("server conn {conn_dest} failed: {e}");
             if !e.is_ws_error() {
