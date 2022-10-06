@@ -13,4 +13,6 @@ pub struct ClientConfig {
     pub server_ip: Option<String>,
     ///建立ssl连接时,是否跳过ssl证书验证
     pub insecure: Option<bool>,
+    ///额外的http请求头
+    pub extra_http_headers: Option<Vec<[String; 2]>>,
 }
