@@ -4,9 +4,9 @@ use futures_util::{
     SinkExt, StreamExt,
 };
 use rustls::ClientConfig as TlsClientConfig;
-use std::{collections::VecDeque, sync::Arc};
-use tokio::net::TcpStream;
+use std::{collections::VecDeque, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
+use tokio::{net::TcpStream, time::timeout};
 use tokio_tungstenite::{
     tungstenite::{handshake::server::Response, Error as WsError, Message},
     Connector, MaybeTlsStream, WebSocketStream,
@@ -77,31 +77,53 @@ impl ServerConnManger {
         Ok(conn_pair)
     }
 
+    ///取出一个存在的连接
+    async fn fetch_exist_conn(&self) -> Option<ConnPair> {
+        let mut lock = self.conn_pool.lock().await;
+        log::info!(
+            "get_conn_pair(in lock): idle_conns={}, max_idle_conns={}",
+            lock.len(),
+            self.max_idle_conns
+        );
+        lock.pop_front()
+    }
+
+    ///检测取出的连接,判断是否有效
+    async fn check_conn_status(&self, conn_pair: &mut ConnPair) -> Result<(), WsError> {
+        let ws_writer = &mut conn_pair.0;
+        //发送ping
+        let data = vec![6, 6, 6];
+        ws_writer.send(Message::Ping(data)).await?;
+        //等待pong
+        let ws_reader = &mut conn_pair.1;
+        if let Some(message_result) = ws_reader.next().await {
+            let message = message_result?;
+            if let Message::Pong(_) = message {
+                return Ok(());
+            }
+        }
+        Err(WsError::AlreadyClosed)
+    }
+
     ///取出连接
     pub async fn get_conn_pair(&self) -> Result<ConnPair, WsError> {
         if self.max_idle_conns == 0 {
             //不使用连接池
             return self.create_new_conn().await;
         }
-        let option_conn_pair = {
-            let mut lock = self.conn_pool.lock().await;
-            log::info!(
-                "get_conn_pair(in lock): idle_conns={}, max_idle_conns={}",
-                lock.len(),
-                self.max_idle_conns
-            );
-            lock.pop_front()
-        };
-        match option_conn_pair {
-            Some(s) => {
+        //指定每次ping测试时间限制
+        let timeout_duration = Duration::from_millis(1500);
+        while let Some(mut conn_pair) = self.fetch_exist_conn().await {
+            //判断取出的连接是否有效
+            let tm_check_result =
+                timeout(timeout_duration, self.check_conn_status(&mut conn_pair)).await;
+            if let Ok(Ok(_)) = tm_check_result {
                 log::info!("get_conn_pair(from pool)");
-                Ok(s)
-            }
-            None => {
-                log::info!("get_conn_pair(create new)");
-                self.create_new_conn().await
+                return Ok(conn_pair);
             }
         }
+        log::info!("get_conn_pair(create new)");
+        self.create_new_conn().await
     }
 
     async fn close_conn_pair(&self, conn: ConnPair) {
