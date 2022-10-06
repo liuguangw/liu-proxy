@@ -8,6 +8,10 @@ use thiserror::Error;
 pub enum ServerError {
     #[error("load {0} failed: {1}")]
     Config(String, ConfigError),
+    #[error("ssl cert path not set")]
+    ConfigSSlCertNone,
+    #[error("ssl key path not set")]
+    ConfigSSlKeyNone,
     #[error("load ssl cert failed: {0}")]
     Cert(#[from] TlsServerConfigError),
     #[error("bind address failed: {0}")]

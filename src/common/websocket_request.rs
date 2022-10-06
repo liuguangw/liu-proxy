@@ -50,13 +50,12 @@ impl TryFrom<&ClientConfig> for WebsocketRequest {
     fn try_from(value: &ClientConfig) -> Result<Self, Self::Error> {
         let server_uri: Uri = value.server_url.parse()?;
         //获取host/ip
-        let server_host = if !value.server_ip.is_empty() {
-            &value.server_ip
-        } else {
-            match server_uri.host() {
+        let server_host = match &value.server_ip {
+            Some(ip_value) if !ip_value.is_empty() => ip_value.as_str(),
+            _ => match server_uri.host() {
                 Some(s) => s,
                 None => return Err(ParseWebsocketRequestError::UriNoHostErr),
-            }
+            },
         };
         //解析端口
         let server_port = match server_uri.port_u16() {
@@ -92,7 +91,7 @@ impl TryFrom<&ClientConfig> for WebsocketRequest {
         Ok(Self {
             server_uri,
             server_addr,
-            insecure: value.insecure,
+            insecure: matches!(value.insecure, Some(true)),
             auth_token: value.auth_token.to_owned(),
         })
     }

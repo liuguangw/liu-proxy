@@ -25,7 +25,10 @@ pub async fn execute(config_file: &str) -> Result<(), ServerError> {
     let config = web::Data::new(config);
     //address
     let listen_address = format!("{}:{}", &config.address, config.port);
-    log::info!("Server listen {listen_address}");
+    log::info!(
+        "Server listen {listen_address} (ssl = {:?})",
+        config.use_ssl
+    );
     //build server
     let server = {
         let config_clone = config.clone();
@@ -33,8 +36,17 @@ pub async fn execute(config_file: &str) -> Result<(), ServerError> {
     };
     //判断是否开启ssl
     let server = if config.use_ssl {
-        let tls_config =
-            tls::load_tls_config(&config.public_key_path, &config.private_key_path).await?;
+        //cert路径
+        let ssl_cert_path = match &config.ssl_cert_path {
+            Some(s) if !s.is_empty() => s.as_str(),
+            _ => return Err(ServerError::ConfigSSlCertNone),
+        };
+        //key路径
+        let ssl_key_path = match &config.ssl_key_path {
+            Some(s) if !s.is_empty() => s.as_str(),
+            _ => return Err(ServerError::ConfigSSlKeyNone),
+        };
+        let tls_config = tls::load_tls_config(ssl_cert_path, ssl_key_path).await?;
         server.bind_rustls(&listen_address, tls_config)
     } else {
         server.bind(&listen_address)
