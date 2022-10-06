@@ -1,11 +1,10 @@
-use super::poll_message;
 use super::poll_message::PollMessageError;
+use super::{poll_message, server_conn_manger::ConnPair};
 use crate::common::{
     msg::client::Connect, msg::server::ConnectResult, msg::ServerMessage, socket5::ConnDest,
 };
-use futures_util::{Sink, Stream};
 use thiserror::Error;
-use tokio_tungstenite::tungstenite::{Error as WsError, Message};
+use tokio_tungstenite::tungstenite::Error as WsError;
 
 #[derive(Error, Debug)]
 pub enum ConnectError {
@@ -23,16 +22,13 @@ pub enum ConnectError {
     Timeout,
 }
 
-pub async fn check_server_conn<T>(
-    ws_stream: &mut T,
+pub async fn check_server_conn(
+    ws_conn_pair: &mut ConnPair,
     conn_dest: &ConnDest,
-) -> Result<(), ConnectError>
-where
-    T: Stream<Item = Result<Message, WsError>> + Sink<Message, Error = WsError> + Unpin,
-{
+) -> Result<(), ConnectError> {
     let conn_msg = Connect(conn_dest.to_string());
-    super::send_message::send_message(ws_stream, conn_msg).await?;
-    let message = poll_message::poll_message(ws_stream).await?;
+    super::send_message::send_message(&mut ws_conn_pair.0, conn_msg).await?;
+    let message = poll_message::poll_message(&mut ws_conn_pair.1).await?;
     match message {
         ServerMessage::ConnResult(conn_result) => match conn_result {
             ConnectResult::Ok => Ok(()),

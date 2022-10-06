@@ -23,3 +23,12 @@ pub enum ProxyError {
     #[error("server fetch response failed: {0}")]
     ServerResponse(String),
 }
+impl ProxyError {
+    pub fn is_ws_error(&self) -> bool {
+        match self {
+            ProxyError::SendRequest(_) => true,
+            ProxyError::PollMessage(e) => e.is_ws_error(),
+            _ => false,
+        }
+    }
+}

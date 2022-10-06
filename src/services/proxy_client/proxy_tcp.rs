@@ -1,27 +1,26 @@
 use super::poll_message;
 use super::proxy_error::ProxyError;
+use super::server_conn_manger::ConnPair;
 use crate::common::msg::client::ProxyRequest;
 use crate::common::msg::{server::ProxyResponseResult, ClientMessage, ServerMessage};
 use crate::services::read_raw_data;
 use futures_util::future::Either;
-use futures_util::{Sink, Stream, StreamExt};
+use futures_util::{Sink, Stream};
 use std::io::ErrorKind;
 use tokio::{
     io::{AsyncRead, AsyncWrite, AsyncWriteExt},
     net::TcpStream,
 };
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 pub async fn proxy_tcp(
-    ws_stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    ws_conn_pair: &mut ConnPair,
     tcp_stream: &mut TcpStream,
 ) -> Result<(), ProxyError> {
     let (mut tcp_reader, mut tcp_writer) = tcp_stream.split();
-    let (mut ws_writer, mut ws_reader) = ws_stream.split();
     tokio::select! {
-        request_result = read_request_loop(&mut tcp_reader, &mut ws_writer)=>request_result,
-        response_result = read_response_loop(&mut ws_reader, &mut tcp_writer)=>response_result,
+        request_result = read_request_loop(&mut tcp_reader, &mut ws_conn_pair.0)=>request_result,
+        response_result = read_response_loop(&mut ws_conn_pair.1, &mut tcp_writer)=>response_result,
     }
 }
 

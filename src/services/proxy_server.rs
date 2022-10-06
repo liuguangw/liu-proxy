@@ -51,7 +51,7 @@ pub async fn execute(config_file: &str) -> Result<(), ServerError> {
     } else {
         server.bind(&listen_address)
     }
-    .map_err(ServerError::Bind)?;
+    .map_err(|e| ServerError::Bind(listen_address.to_string(), e))?;
     //run
     server.run().await.map_err(ServerError::HttpService)?;
     log::info!("proxy server shutdown");

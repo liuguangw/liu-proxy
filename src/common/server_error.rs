@@ -3,7 +3,7 @@ use rustls::Error as TlsError;
 use std::io::Error as IoError;
 use thiserror::Error;
 
-///运行服务端的错误
+///启动服务端的错误
 #[derive(Error, Debug)]
 pub enum ServerError {
     #[error("load {0} failed: {1}")]
@@ -14,8 +14,8 @@ pub enum ServerError {
     ConfigSSlKeyNone,
     #[error("load ssl cert failed: {0}")]
     Cert(#[from] TlsServerConfigError),
-    #[error("bind address failed: {0}")]
-    Bind(IoError),
+    #[error("bind address {0} failed: {1}")]
+    Bind(String, IoError),
     #[error("run http service failed: {0}")]
     HttpService(IoError),
 }
