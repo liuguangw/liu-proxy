@@ -5,6 +5,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
   develop:
@@ -12,6 +14,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: check fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy
+      - name: build app
+        run: cargo build --release
+      - name: copy build files
+        run: |
+          mkdir -p ./dist
+          cp -r ./config ./web ./target/release/liu-proxy ./dist/
+          cp ./Dockerfile-github ./dist/Dockerfile
+          ls -al ./dist
 
       - name: Docker meta
         id: meta
@@ -37,6 +64,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
+          context: ./dist
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
