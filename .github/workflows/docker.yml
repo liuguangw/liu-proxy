@@ -35,10 +35,10 @@ jobs:
         run: cargo build --release
       - name: copy build files
         run: |
-          mkdir -p ./dist
-          cp -r ./config ./web ./target/release/liu-proxy ./dist/
-          cp ./Dockerfile-github ./dist/Dockerfile
-          ls -al ./dist
+          mkdir -p ./dist/other_files
+          cp -r ./config ./web ./dist/other_files/
+          cp ./target/release/liu-proxy ./dist/
+          cp ./github.Dockerfile ./dist/Dockerfile
 
       - name: Docker meta
         id: meta
