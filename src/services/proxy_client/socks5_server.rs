@@ -1,8 +1,8 @@
 use super::handle_socks5_connection::handle_connection;
 use super::server_conn_manger::ServerConnManger;
 use crate::common::{ClientConfig, ClientError};
-use actix_web::rt;
 use tokio::net::TcpListener;
+use tokio::task;
 
 //socks5 accept循环
 pub async fn run_accept_loop(
@@ -22,6 +22,14 @@ pub async fn run_accept_loop(
                 continue;
             }
         };
-        rt::spawn(handle_connection(stream, addr, conn_manger.to_owned()));
+        //spawn_local
+        let local = task::LocalSet::new();
+        local
+            .run_until(async {
+                task::spawn_local(handle_connection(stream, addr, conn_manger.to_owned()))
+                    .await
+                    .unwrap();
+            })
+            .await;
     }
 }
