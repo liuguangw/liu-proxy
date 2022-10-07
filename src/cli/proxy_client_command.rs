@@ -14,7 +14,7 @@ impl AppCommand for ProxyClientCommand {
     fn execute(&self) {
         let fut = proxy_client::execute(&self.config_file);
         if let Err(err) = rt::block_on(fut) {
-            eprintln!("{}", err);
+            log::error!("{}", err);
         }
     }
 }

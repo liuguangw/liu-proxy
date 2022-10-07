@@ -1,39 +1,37 @@
 use super::poll_message;
 use super::proxy_error::ProxyError;
 use super::server_conn_manger::ConnPair;
+use super::stream::{StreamReader, StreamWriter};
 use crate::common::msg::client::ProxyRequest;
 use crate::common::msg::{server::ProxyResponseResult, ClientMessage, ServerMessage};
-use crate::services::read_raw_data;
 use futures_util::future::Either;
 use futures_util::{Sink, Stream};
 use std::io::ErrorKind;
-use tokio::{
-    io::{AsyncRead, AsyncWrite, AsyncWriteExt},
-    net::TcpStream,
-};
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 pub async fn proxy_tcp(
     ws_conn_pair: &mut ConnPair,
-    tcp_stream: &mut TcpStream,
+    stream_reader: &mut StreamReader<'_>,
+    stream_writer: &mut StreamWriter<'_>,
 ) -> Result<(), ProxyError> {
-    let (mut tcp_reader, mut tcp_writer) = tcp_stream.split();
     tokio::select! {
-        request_result = read_request_loop(&mut tcp_reader, &mut ws_conn_pair.0)=>request_result,
-        response_result = read_response_loop(&mut ws_conn_pair.1, &mut tcp_writer)=>response_result,
+        request_result = read_request_loop(stream_reader, &mut ws_conn_pair.0)=>request_result,
+        response_result = read_response_loop(&mut ws_conn_pair.1, stream_writer)=>response_result,
     }
 }
 
 ///将客户端请求转发给server
-async fn read_request_loop<T, U>(tcp_reader: &mut T, ws_writer: &mut U) -> Result<(), ProxyError>
+async fn read_request_loop<T>(
+    stream_reader: &mut StreamReader<'_>,
+    ws_writer: &mut T,
+) -> Result<(), ProxyError>
 where
-    T: AsyncRead + Unpin,
-    U: Sink<Message, Error = WsError> + Unpin,
+    T: Sink<Message, Error = WsError> + Unpin,
 {
     loop {
         let mut is_disconn = false;
         //读取客户端请求
-        let client2_msg = match read_raw_data::read_raw(tcp_reader).await {
+        let client2_msg = match stream_reader.read_buf().await {
             //客户端的请求
             Ok(data) => Either::Left(ProxyRequest(data)),
             Err(e) => {
@@ -64,10 +62,12 @@ where
 }
 
 ///将响应给客户端
-async fn read_response_loop<T, U>(ws_reader: &mut T, tcp_writer: &mut U) -> Result<(), ProxyError>
+async fn read_response_loop<T>(
+    ws_reader: &mut T,
+    stream_writer: &mut StreamWriter<'_>,
+) -> Result<(), ProxyError>
 where
     T: Stream<Item = Result<Message, WsError>> + Unpin,
-    U: AsyncWrite + Unpin,
 {
     loop {
         let message = poll_message::poll_message(ws_reader)
@@ -88,7 +88,7 @@ where
             ServerMessage::RequestFail(e) => return Err(ProxyError::ServerRequest(e.0)),
         };
         //dbg!(&response_data);
-        if let Err(e) = tcp_writer.write(&response_data).await {
+        if let Err(e) = stream_writer.write_buf(response_data).await {
             return Err(ProxyError::WriteResponse(e));
         }
     }

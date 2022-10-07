@@ -16,4 +16,4 @@ pub use config_error::ConfigError;
 pub use no_verify::NoServerCertVerifier;
 pub use server_config::ServerConfig;
 pub use server_error::{ServerError, TlsServerConfigError};
-pub use websocket_request::WebsocketRequest;
+pub use websocket_request::{ParseWebsocketRequestError, WebsocketRequest};

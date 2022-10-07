@@ -1,4 +1,6 @@
-use crate::common::{ClientConfig, NoServerCertVerifier, WebsocketRequest};
+use crate::common::{
+    ClientConfig, NoServerCertVerifier, ParseWebsocketRequestError, WebsocketRequest,
+};
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
@@ -26,9 +28,7 @@ pub struct ServerConnManger {
 }
 
 impl ServerConnManger {
-    pub fn try_init(
-        config: &ClientConfig,
-    ) -> Result<Self, <WebsocketRequest as TryFrom<&ClientConfig>>::Error> {
+    pub fn try_init(config: &ClientConfig) -> Result<Self, ParseWebsocketRequestError> {
         let ws_request = WebsocketRequest::try_from(config)?;
         let conn_list = if config.max_idle_conns > 0 {
             VecDeque::with_capacity(config.max_idle_conns as usize)

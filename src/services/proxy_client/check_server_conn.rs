@@ -1,8 +1,8 @@
+use std::fmt::Display;
+
 use super::poll_message::PollMessageError;
 use super::{poll_message, server_conn_manger::ConnPair};
-use crate::common::{
-    msg::client::Connect, msg::server::ConnectResult, msg::ServerMessage, socks5::ConnDest,
-};
+use crate::common::{msg::client::Connect, msg::server::ConnectResult, msg::ServerMessage};
 use thiserror::Error;
 use tokio_tungstenite::tungstenite::Error as WsError;
 
@@ -22,9 +22,9 @@ pub enum ConnectError {
     Timeout,
 }
 
-pub async fn check_server_conn(
+pub async fn check_server_conn<T: Display>(
     ws_conn_pair: &mut ConnPair,
-    conn_dest: &ConnDest,
+    conn_dest: T,
 ) -> Result<(), ConnectError> {
     let conn_msg = Connect(conn_dest.to_string());
     super::send_message::send_message(&mut ws_conn_pair.0, conn_msg).await?;
