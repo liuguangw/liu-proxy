@@ -21,11 +21,11 @@ pub async fn execute(config_file: &str) -> Result<(), ClientError> {
         .await
         .map_err(|e| ClientError::Config(config_file.to_string(), e))?;
     //dbg!(&config);
-    let addr = format!("{}:{}", &config.address, config.port);
+    let addr = format!("{}:{}", &config.address, config.socks5_port);
     let listener = TcpListener::bind(&addr)
         .await
         .map_err(|e| ClientError::Bind(addr.to_string(), e))?;
-    log::info!("Socket5 Listening on: {addr}");
+    log::info!("socks5 proxy listening on: {addr}");
     //let server_address = server_url.to_string();
     tokio::select! {
         _ = run_accept_loop(listener, config) =>(),

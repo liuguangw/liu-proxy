@@ -1,6 +1,6 @@
 use super::run_proxy_tcp_loop::run_proxy_tcp_loop;
 use super::{proxy_handshake::proxy_handshake, server_conn_manger::ServerConnManger};
-use crate::common::socket5::build_response;
+use crate::common::socks5::build_response;
 use std::net::SocketAddr;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 
@@ -10,11 +10,11 @@ pub async fn handle_connection(
     addr: SocketAddr,
     conn_manger: ServerConnManger,
 ) {
-    //socket5初步握手,获取目标地址,端口
+    //socks5初步握手,获取目标地址,端口
     let conn_dest = match proxy_handshake(&mut stream).await {
         Ok(s) => s,
         Err(handshake_error) => {
-            log::error!("socket5 handshake failed [{addr}]: {handshake_error}");
+            log::error!("socks5 handshake failed [{addr}]: {handshake_error}");
             return;
         }
     };
@@ -25,9 +25,9 @@ pub async fn handle_connection(
             log::error!("{e}");
             //socket 5 通知失败信息
             let rep_code = 5;
-            let socket5_response = build_response(&conn_dest, rep_code);
-            if let Err(e1) = stream.write_all(&socket5_response).await {
-                log::error!("write socket5_response failed: {e1}");
+            let socks5_response = build_response(&conn_dest, rep_code);
+            if let Err(e1) = stream.write_all(&socks5_response).await {
+                log::error!("write socks5_response failed: {e1}");
             }
             return;
         }

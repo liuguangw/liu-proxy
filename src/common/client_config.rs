@@ -4,7 +4,8 @@ use serde::Deserialize;
 ///客户端配置
 pub struct ClientConfig {
     pub address: String,
-    pub port: u16,
+    pub socks5_port: u16,
+    pub http_port: u16,
     pub auth_token: String,
     pub server_url: String,
     ///连接池最多空闲连接个数

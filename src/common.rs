@@ -7,7 +7,7 @@ mod no_verify;
 mod server_config;
 mod server_error;
 ///Socket 5 协议相关
-pub mod socket5;
+pub mod socks5;
 mod websocket_request;
 
 pub use client_config::ClientConfig;

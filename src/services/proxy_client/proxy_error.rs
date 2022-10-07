@@ -6,8 +6,8 @@ use tokio_tungstenite::tungstenite::Error as WsError;
 ///客户端proxy错误定义
 #[derive(Error, Debug)]
 pub enum ProxyError {
-    #[error("write socket5_response failed: {0}")]
-    Socket5Resp(IoError),
+    #[error("write socks5_response failed: {0}")]
+    Socks5Resp(IoError),
     #[error("read request failed: {0}")]
     ReadRequest(IoError),
     #[error("write response failed: {0}")]

@@ -2,7 +2,7 @@ use super::proxy_error::ProxyError;
 use super::proxy_tcp::proxy_tcp;
 use super::server_conn_manger::ConnPair;
 use super::{check_server_conn::check_server_conn, server_conn_manger::ServerConnManger};
-use crate::common::socket5::{build_response, ConnDest};
+use crate::common::socks5::{build_response, ConnDest};
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 
 pub async fn run_proxy_tcp_loop(
@@ -25,15 +25,15 @@ pub async fn run_proxy_tcp_loop(
             5
         }
     };
-    //写入socket5_response
+    //写入socks5_response
     {
-        let socket5_response = build_response(conn_dest, rep);
-        if let Err(e) = tcp_stream.write_all(&socket5_response).await {
+        let socks5_response = build_response(conn_dest, rep);
+        if let Err(e) = tcp_stream.write_all(&socks5_response).await {
             //回收连接
             if !is_ws_err {
                 conn_manger.push_back_conn(ws_conn_pair).await;
             }
-            return Err(ProxyError::Socket5Resp(e));
+            return Err(ProxyError::Socks5Resp(e));
         }
     }
     //server连接remote失败
@@ -44,7 +44,7 @@ pub async fn run_proxy_tcp_loop(
         }
         return Ok(());
     }
-    //println!("socket5 handshake success");
+    //println!("socks5 handshake success");
     // proxy
     let proxy_result = proxy_tcp(&mut ws_conn_pair, tcp_stream).await;
     let is_ws_err = match &proxy_result {

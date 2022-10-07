@@ -1,4 +1,4 @@
-use crate::common::socket5::{self, ConnDest, ParseConnDestError};
+use crate::common::socks5::{self, ConnDest, ParseConnDestError};
 use std::io::Error as IoError;
 use thiserror::Error;
 use tokio::{
@@ -22,10 +22,10 @@ pub enum HandshakeError {
     ParseDestError(#[from] ParseConnDestError),
 }
 
-///处理socket5握手,获取目标地址、端口
+///处理socks5握手,获取目标地址、端口
 pub async fn proxy_handshake(stream: &mut TcpStream) -> Result<ConnDest, HandshakeError> {
     let version = stream.read_u8().await?;
-    if version != socket5::VERSION {
+    if version != socks5::VERSION {
         return Err(HandshakeError::Version(version));
     }
     let methods = stream.read_u8().await?;
@@ -44,7 +44,7 @@ pub async fn proxy_handshake(stream: &mut TcpStream) -> Result<ConnDest, Handsha
     stream.write_u16(response_data).await?;
     //
     let version = stream.read_u8().await?;
-    if version != socket5::VERSION {
+    if version != socks5::VERSION {
         return Err(HandshakeError::Version(version));
     }
     let cmd = stream.read_u8().await?;

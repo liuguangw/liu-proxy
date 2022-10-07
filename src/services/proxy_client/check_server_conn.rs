@@ -1,7 +1,7 @@
 use super::poll_message::PollMessageError;
 use super::{poll_message, server_conn_manger::ConnPair};
 use crate::common::{
-    msg::client::Connect, msg::server::ConnectResult, msg::ServerMessage, socket5::ConnDest,
+    msg::client::Connect, msg::server::ConnectResult, msg::ServerMessage, socks5::ConnDest,
 };
 use thiserror::Error;
 use tokio_tungstenite::tungstenite::Error as WsError;

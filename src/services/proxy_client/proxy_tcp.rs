@@ -37,7 +37,7 @@ where
             //客户端的请求
             Ok(data) => Either::Left(ProxyRequest(data)),
             Err(e) => {
-                //客户端断开socket5
+                //客户端断开socks5
                 if e.kind() == ErrorKind::UnexpectedEof {
                     is_disconn = true;
                     Either::Right(ClientMessage::DisConn)
