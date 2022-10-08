@@ -18,9 +18,10 @@ pub enum HandshakeError {
 ///处理http握手,获取目标地址、端口
 pub async fn proxy_handshake(
     stream: &mut TcpStream,
+    first_byte: u8,
 ) -> Result<(&'static str, String), HandshakeError> {
     let mut buf = BytesMut::new();
-    buf.put_slice(b"C");
+    buf.put_u8(first_byte);
     let (http_version, path) = loop {
         let data = read_raw_data::read_raw(stream).await?;
         buf.put_slice(&data);
@@ -33,9 +34,17 @@ pub async fn proxy_handshake(
             } else {
                 "1.0"
             };
-            let method = req.method.unwrap();
+            let method = req.method.unwrap().to_string();
+            //todo 其他请求的处理
+            //> GET http://nginx.org/en/docs/http/ngx_http_proxy_module.html HTTP/1.1
+            //> Host: nginx.org
+            //> User-Agent: curl/7.83.1
+            //> Accept: */*
+            //> Proxy-Connection: Keep-Alive
+            //>
             if method != "CONNECT" {
-                return Err(HandshakeError::NotConnect(http_version, method.to_string()));
+                dbg!(buf.len(), res);
+                return Err(HandshakeError::NotConnect(http_version, method));
             }
             let path = req.path.unwrap().to_string();
             break (http_version, path);

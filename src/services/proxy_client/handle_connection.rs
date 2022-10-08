@@ -19,10 +19,10 @@ pub async fn handle_connection(
         }
     };
     if first_byte == socks5::VERSION {
-        log::info!("socks5 handshake");
+        //log::info!("socks5 handshake");
         socks5_handle_connection(stream, addr, conn_manger).await;
     } else {
-        log::info!("http handshake");
-        http_handle_connection(stream, addr, conn_manger).await;
+        //log::info!("http handshake");
+        http_handle_connection(stream, addr, conn_manger, first_byte).await;
     }
 }

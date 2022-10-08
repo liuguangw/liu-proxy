@@ -14,12 +14,13 @@ pub async fn handle_connection(
     mut stream: TcpStream,
     addr: SocketAddr,
     conn_manger: ServerConnManger,
+    first_byte: u8,
 ) {
     //获取目标地址,端口,http协议版本
-    let (http_version, conn_dest) = match proxy_handshake(&mut stream).await {
+    let (http_version, conn_dest) = match proxy_handshake(&mut stream, first_byte).await {
         Ok(s) => s,
         Err(e) => {
-            log::error!("socks5 handshake failed [{addr}]: {e}");
+            log::error!("http handshake failed [{addr}]: {e}");
             //不是http connect
             if let HandshakeError::NotConnect(http_version, _) = e {
                 //http 通知失败信息
