@@ -1,4 +1,5 @@
 use super::{AddressType, ParseAddressTypeError};
+use bytes::{BufMut, Bytes, BytesMut};
 use std::{array::TryFromSliceError, fmt, net::IpAddr, ops::Range, str::Utf8Error};
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -187,7 +188,7 @@ impl ConnDest {
         Ok(Self { addr, port })
     }
 
-    pub fn to_raw_data(&self) -> Vec<u8> {
+    pub fn to_raw_data(&self) -> Bytes {
         let (addr_type, addr_buffer) = match &self.addr {
             ConnDestAddr::Ip(ip) => match ip {
                 IpAddr::V4(s) => (AddressType::IpV4, s.octets().to_vec()),
@@ -200,14 +201,11 @@ impl ConnDest {
                 (AddressType::Domain, buff)
             }
         };
-        let mut raw_data = Vec::with_capacity(addr_buffer.len() + 3);
-        raw_data.push(addr_type.into());
-        raw_data.extend_from_slice(&addr_buffer);
-        let p0 = (self.port >> 8) as u8;
-        let p1 = (self.port & 0xFF) as u8;
-        raw_data.push(p0);
-        raw_data.push(p1);
-        raw_data
+        let mut raw_data = BytesMut::with_capacity(addr_buffer.len() + 3);
+        raw_data.put_u8(addr_type.into());
+        raw_data.put_slice(&addr_buffer);
+        raw_data.put_u16(self.port);
+        raw_data.into()
     }
 }
 

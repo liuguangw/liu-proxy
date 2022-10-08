@@ -112,7 +112,7 @@ impl ServerConnManger {
             return self.create_new_conn().await;
         }
         //指定每次ping测试时间限制
-        let timeout_duration = Duration::from_millis(1500);
+        let timeout_duration = Duration::from_millis(1800);
         while let Some(mut conn_pair) = self.fetch_exist_conn().await {
             //判断取出的连接是否有效
             let tm_check_result =

@@ -1,21 +1,18 @@
 mod check_server_conn;
-mod handle_http_connection;
-mod handle_socks5_connection;
-mod http_server;
+mod handle_connection;
+mod http;
 mod poll_message;
 mod proxy_error;
-mod proxy_handshake;
-mod proxy_response_stream;
 mod proxy_tcp;
 mod run_proxy_tcp_loop;
 mod send_message;
 mod server_conn_manger;
-mod socks5_server;
-mod stream;
+mod socks5;
 
 use crate::common::{ClientConfig, ClientError};
 use crate::services;
 use server_conn_manger::ServerConnManger;
+use tokio::net::TcpListener;
 use tokio::signal;
 
 ///运行客户端程序
@@ -35,12 +32,38 @@ pub async fn execute(config_file: &str) -> Result<(), ClientError> {
     //把连接放回连接池
     conn_manger.push_back_conn(conn_pair).await;
     tokio::select! {
-        output1= socks5_server::run_accept_loop(&conn_manger,&config) =>output1?,
-        output2= http_server::run_accept_loop(&conn_manger,&config) =>output2?,
-        output3 = signal::ctrl_c() =>{
-            output3.map_err(ClientError::WaitSignal)?;
+        output1= run_accept_loop(conn_manger,config) =>output1?,
+        output2 = signal::ctrl_c() =>{
+            output2.map_err(ClientError::WaitSignal)?;
             log::info!(" - proxy server shutdown");
         },
     };
     Ok(())
+}
+
+//accept tcp 连接循环
+async fn run_accept_loop(
+    conn_manger: ServerConnManger,
+    config: ClientConfig,
+) -> Result<(), ClientError> {
+    let addr = format!("{}:{}", &config.address, config.port);
+    let listener = TcpListener::bind(&addr)
+        .await
+        .map_err(|e| ClientError::Bind(addr.to_string(), e))?;
+    log::info!("proxy listening on: {addr}");
+    loop {
+        let (stream, addr) = match listener.accept().await {
+            Ok(s) => s,
+            Err(e) => {
+                println!("accept failed: {}", e);
+                continue;
+            }
+        };
+        //spawn
+        tokio::spawn(handle_connection::handle_connection(
+            stream,
+            addr,
+            conn_manger.to_owned(),
+        ));
+    }
 }

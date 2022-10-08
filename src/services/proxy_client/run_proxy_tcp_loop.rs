@@ -1,18 +1,16 @@
 use super::proxy_error::ProxyError;
 use super::proxy_tcp::proxy_tcp;
-use super::server_conn_manger::ConnPair;
-use super::server_conn_manger::ServerConnManger;
-use super::stream::{StreamReader, StreamWriter};
+use super::server_conn_manger::{ConnPair, ServerConnManger};
+use tokio::net::TcpStream;
 
 pub async fn run_proxy_tcp_loop(
     conn_manger: &ServerConnManger,
     mut ws_conn_pair: ConnPair,
-    stream_reader: &mut StreamReader<'_>,
-    stream_writer: &mut StreamWriter<'_>,
+    mut stream: TcpStream,
 ) -> Result<(), ProxyError> {
     //println!("socks5 handshake success");
     // proxy
-    let proxy_result = proxy_tcp(&mut ws_conn_pair, stream_reader, stream_writer).await;
+    let proxy_result = proxy_tcp(&mut ws_conn_pair, &mut stream).await;
     let is_ws_err = match &proxy_result {
         Ok(_) => false,
         Err(e) => e.is_ws_error(),

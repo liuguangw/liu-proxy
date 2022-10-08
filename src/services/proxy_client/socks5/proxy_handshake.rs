@@ -24,10 +24,6 @@ pub enum HandshakeError {
 
 ///处理socks5握手,获取目标地址、端口
 pub async fn proxy_handshake(stream: &mut TcpStream) -> Result<ConnDest, HandshakeError> {
-    let version = stream.read_u8().await?;
-    if version != socks5::VERSION {
-        return Err(HandshakeError::Version(version));
-    }
     let methods = stream.read_u8().await?;
     {
         let mut buffer = vec![0; methods as usize];

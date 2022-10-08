@@ -746,6 +746,7 @@ dependencies = [
  "clap",
  "env_logger",
  "futures-util",
+ "httparse",
  "log",
  "rustls",
  "rustls-pemfile",
