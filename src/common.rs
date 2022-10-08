@@ -1,3 +1,4 @@
+mod auth_user;
 mod client_config;
 mod client_error;
 mod config_error;
@@ -10,6 +11,7 @@ mod server_error;
 pub mod socks5;
 mod websocket_request;
 
+pub use auth_user::AuthUser;
 pub use client_config::ClientConfig;
 pub use client_error::ClientError;
 pub use config_error::ConfigError;

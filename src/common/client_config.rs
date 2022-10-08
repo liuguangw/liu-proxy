@@ -1,3 +1,4 @@
+use super::AuthUser;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -5,7 +6,7 @@ use serde::Deserialize;
 pub struct ClientConfig {
     pub address: String,
     pub port: u16,
-    pub auth_token: String,
+    pub auth_user: AuthUser,
     pub server_url: String,
     ///连接池最多空闲连接个数
     pub max_idle_conns: u32,

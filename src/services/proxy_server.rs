@@ -1,4 +1,4 @@
-mod check_auth_token;
+mod check_auth_user;
 mod handle_connection;
 mod poll_message;
 mod proxy_error;

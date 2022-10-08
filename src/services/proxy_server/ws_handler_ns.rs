@@ -1,4 +1,4 @@
-use super::check_auth_token::check_auth_token;
+use super::check_auth_user::check_auth_user;
 use super::handle_connection::handle_connection;
 use crate::common::ServerConfig;
 use actix_web::{http::Method, rt, web, Either, HttpRequest, HttpResponse, Responder};
@@ -10,7 +10,7 @@ pub async fn ws_handler(
     config: web::Data<ServerConfig>,
 ) -> Result<Either<HttpResponse, impl Responder>, actix_web::Error> {
     //auth
-    if !check_auth_token(&req, &config.auth_tokens) {
+    if !check_auth_user(&req, &config.auth_users) {
         //404
         let err404_response = super::error_404_handler(Method::GET).await?;
         return Ok(Either::Right(err404_response));

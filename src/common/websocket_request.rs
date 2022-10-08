@@ -1,6 +1,8 @@
-use super::ClientConfig;
+use super::{AuthUser, ClientConfig};
+use bytes::{BufMut, BytesMut};
 use std::io::Error as IoError;
 use std::net::{SocketAddr, ToSocketAddrs};
+use std::time::{self, SystemTime};
 use thiserror::Error;
 use tokio_tungstenite::tungstenite::{
     client::IntoClientRequest,
@@ -29,22 +31,42 @@ pub enum ParseWebsocketRequestError {
 #[derive(Clone)]
 pub struct WebsocketRequest {
     server_uri: Uri,
+    auth_user: AuthUser,
     ///服务端ip地址+端口
     pub server_addr: SocketAddr,
     ///是否跳过ssl证书验证
     pub insecure: bool,
-    ///http请求头
-    pub http_headers: Vec<(HeaderName, HeaderValue)>,
+    ///额外的http请求头
+    pub extra_http_headers: Vec<(HeaderName, HeaderValue)>,
+}
+
+impl WebsocketRequest {
+    fn gen_token_header(&self) -> (HeaderName, HeaderValue) {
+        let time_now = SystemTime::now();
+        let ts = time_now.duration_since(time::UNIX_EPOCH).unwrap().as_secs();
+        let mut buf = BytesMut::with_capacity(self.auth_user.user.len() + 8 + 20);
+        buf.put_slice(self.auth_user.user.as_bytes());
+        buf.put_u64(ts);
+        let token = self.auth_user.get_token(ts);
+        buf.put_slice(&token);
+        let encoded_buf = base64::encode(&buf);
+        //Bearer token
+        let token_value = format!("Bearer {encoded_buf}");
+        let token_value: HeaderValue = token_value.parse().unwrap();
+        (header::AUTHORIZATION, token_value)
+    }
 }
 
 impl IntoClientRequest for &WebsocketRequest {
     fn into_client_request(self) -> WsResult<Request> {
         let mut request = (&self.server_uri).into_client_request()?;
         let headers = request.headers_mut();
-        //dbg!(&self.http_headers);
-        for (h_name, h_value) in &self.http_headers {
+        let token_header = self.gen_token_header();
+        headers.insert(token_header.0, token_header.1);
+        for (h_name, h_value) in &self.extra_http_headers {
             headers.insert(h_name, h_value.to_owned());
         }
+        //dbg!(&request);
         Ok(request)
     }
 }
@@ -94,27 +116,24 @@ impl TryFrom<&ClientConfig> for WebsocketRequest {
             }
         };
         //headers
-        let extra_http_headers_count = match &value.extra_http_headers {
-            Some(s) => s.len(),
-            None => 0,
-        };
-        let mut http_headers = Vec::with_capacity(1 + extra_http_headers_count);
-        //Bearer token
-        let token_value = format!("Bearer {}", value.auth_token);
-        let token_value: HeaderValue = token_value.parse().unwrap();
-        http_headers.push((header::AUTHORIZATION, token_value));
-        if let Some(extra_headers) = &value.extra_http_headers {
-            for header_pair in extra_headers {
-                let h_name = header_pair[0].parse().unwrap();
-                let h_value = header_pair[1].parse().unwrap();
-                http_headers.push((h_name, h_value));
+        let extra_http_headers = match &value.extra_http_headers {
+            Some(extra_headers) if !extra_headers.is_empty() => {
+                let mut h_headers = Vec::with_capacity(extra_headers.len());
+                for header_pair in extra_headers {
+                    let h_name = header_pair[0].parse().unwrap();
+                    let h_value = header_pair[1].parse().unwrap();
+                    h_headers.push((h_name, h_value));
+                }
+                h_headers
             }
-        }
+            _ => Vec::new(),
+        };
         Ok(Self {
             server_uri,
+            auth_user: value.auth_user.to_owned(),
             server_addr,
             insecure: matches!(value.insecure, Some(true)),
-            http_headers,
+            extra_http_headers,
         })
     }
 }
