@@ -32,6 +32,11 @@ where
             if session.pong(&bytes).await.is_err() {
                 return Err(PollMessageError::Closed);
             }
+        } else if let Message::Close(option_reason) = message {
+            //回复close
+            let session = session.clone();
+            _ = session.close(option_reason).await;
+            return Err(PollMessageError::Closed);
         }
     }
     Err(PollMessageError::Closed)
