@@ -5,7 +5,7 @@ use crate::common::msg::{
     client::ProxyRequest, server::ProxyResponseResult, ClientMessage, ServerMessage,
 };
 use crate::services::read_raw_data;
-use futures_util::{future::Either, Sink, Stream};
+use futures_util::{Sink, Stream};
 use std::io::ErrorKind;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
