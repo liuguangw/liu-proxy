@@ -8,7 +8,6 @@ pub async fn run_proxy_tcp_loop(
     mut ws_conn_pair: ConnPair,
     mut stream: TcpStream,
 ) -> Result<(), ProxyError> {
-    //println!("socks5 handshake success");
     // proxy
     let proxy_result = proxy_tcp(&mut ws_conn_pair, &mut stream).await;
     let is_ws_err = match &proxy_result {

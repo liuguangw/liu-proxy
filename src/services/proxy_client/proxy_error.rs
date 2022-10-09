@@ -1,4 +1,4 @@
-use super::poll_message::PollMessageError;
+use super::{http::parse_request::ParseRequestError, poll_message::PollMessageError};
 use std::io::Error as IoError;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite::Error as WsError;
@@ -20,6 +20,10 @@ pub enum ProxyError {
     ServerRequest(String),
     #[error("server fetch response failed: {0}")]
     ServerResponse(String),
+    #[error("parse request failed: {0}")]
+    ParseRequest(#[from] httparse::Error),
+    #[error("parse request length failed: {0}")]
+    ParseLength(#[from] ParseRequestError),
 }
 impl ProxyError {
     pub fn is_ws_error(&self) -> bool {

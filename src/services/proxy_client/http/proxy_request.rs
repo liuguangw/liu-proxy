@@ -1,59 +1,23 @@
-use super::poll_message;
-use super::proxy_error::ProxyError;
-use super::server_conn_manger::ConnPair;
-use crate::common::msg::{
-    client::ProxyRequest, server::ProxyResponseResult, ClientMessage, ServerMessage,
-};
-use crate::services::read_raw_data;
-use futures_util::{future::Either, Sink, Stream};
-use std::io::ErrorKind;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use super::super::{poll_message, proxy_error::ProxyError, server_conn_manger::ConnPair};
+use super::read_request_loop::read_request_loop;
+use crate::common::msg::{server::ProxyResponseResult, ServerMessage};
+use bytes::Bytes;
+use futures_util::Stream;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
-pub async fn proxy_tcp(
+pub async fn proxy_request(
     ws_conn_pair: &mut ConnPair,
     stream: &mut TcpStream,
+    first_request_data: Bytes,
+    remain_data_size: usize,
 ) -> Result<(), ProxyError> {
     let (mut stream_reader, mut stream_writer) = stream.split();
     tokio::select! {
-        request_result = read_request_loop(&mut stream_reader, &mut ws_conn_pair.0)=>request_result,
+        request_result = read_request_loop(&mut stream_reader, &mut ws_conn_pair.0,first_request_data,remain_data_size)=>request_result,
         response_result = read_response_loop(&mut ws_conn_pair.1,&mut  stream_writer)=>response_result,
     }
-}
-
-///将客户端请求转发给server
-async fn read_request_loop<T, U>(stream_reader: &mut T, ws_writer: &mut U) -> Result<(), ProxyError>
-where
-    T: AsyncRead + Unpin,
-    U: Sink<Message, Error = WsError> + Unpin,
-{
-    loop {
-        //读取客户端请求
-        let raw_data = match read_raw_data::read_raw(stream_reader).await {
-            Ok(data) => data,
-            Err(e) => {
-                //proxy被断开,通知服务端断开remote
-                let disconn_msg = ClientMessage::DisConn;
-                super::send_message::send_message(ws_writer, disconn_msg)
-                    .await
-                    .map_err(ProxyError::SendRequest)?;
-                if e.kind() == ErrorKind::UnexpectedEof {
-                    //被主动断开
-                    break;
-                } else {
-                    //因为读取错误而断开
-                    return Err(ProxyError::ReadRequest(e));
-                }
-            }
-        };
-        let request_msg = ProxyRequest(raw_data);
-        //把请求发给服务端
-        super::send_message::send_message(ws_writer, request_msg)
-            .await
-            .map_err(ProxyError::SendRequest)?;
-    }
-    Ok(())
 }
 
 ///将响应给客户端

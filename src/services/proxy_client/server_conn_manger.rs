@@ -80,11 +80,11 @@ impl ServerConnManger {
     ///取出一个存在的连接
     async fn fetch_exist_conn(&self) -> Option<ConnPair> {
         let mut lock = self.conn_pool.lock().await;
-        log::info!(
+        /*log::info!(
             "get_conn_pair(in lock): idle_conns={}, max_idle_conns={}",
             lock.len(),
             self.max_idle_conns
-        );
+        );*/
         lock.pop_front()
     }
 
@@ -118,11 +118,11 @@ impl ServerConnManger {
             let tm_check_result =
                 timeout(timeout_duration, self.check_conn_status(&mut conn_pair)).await;
             if let Ok(Ok(_)) = tm_check_result {
-                log::info!("get_conn_pair(from pool)");
+                //log::info!("get_conn_pair(from pool)");
                 return Ok(conn_pair);
             }
         }
-        log::info!("get_conn_pair(create new)");
+        //log::info!("get_conn_pair(create new)");
         self.create_new_conn().await
     }
 
@@ -144,19 +144,19 @@ impl ServerConnManger {
         let idle_conns = lock.len();
         //空闲连接已满
         if idle_conns >= (self.max_idle_conns as usize) {
-            log::info!(
+            /*log::info!(
                 "push_back_conn(full): idle_conns={}, max_idle_conns={}",
                 idle_conns,
                 self.max_idle_conns
-            );
+            );*/
             self.close_conn_pair(conn).await;
             return;
         }
-        log::info!(
+        /*log::info!(
             "push_back_conn(success): idle_conns={}, max_idle_conns={}",
             idle_conns + 1,
             self.max_idle_conns
-        );
+        );*/
         lock.push_back(conn);
     }
 }
