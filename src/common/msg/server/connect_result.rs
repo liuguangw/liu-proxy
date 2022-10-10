@@ -6,6 +6,7 @@ const STATUS_ERR: u8 = 1;
 const STATUS_TIMEOUT: u8 = 2;
 
 ///连接remote的结果
+#[derive(Debug)]
 pub enum ConnectResult {
     ///成功
     Ok,

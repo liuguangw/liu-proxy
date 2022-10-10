@@ -1,5 +1,5 @@
-use actix_web::http::Uri;
 use bytes::{BufMut, Bytes, BytesMut};
+use http::Uri;
 use httparse::Request;
 
 ///从req中构造request bytes

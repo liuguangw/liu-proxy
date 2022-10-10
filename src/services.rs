@@ -4,4 +4,4 @@ pub mod proxy_client;
 ///服务端模块
 pub mod proxy_server;
 mod read_raw_data;
-pub use load_config_ns::load_config;
+pub use load_config_ns::{load_config, load_config_sync};

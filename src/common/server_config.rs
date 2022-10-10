@@ -1,7 +1,7 @@
 use super::AuthUser;
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug)]
 ///服务端配置
 pub struct ServerConfig {
     ///地址

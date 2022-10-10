@@ -35,7 +35,7 @@ pub async fn execute(config_file: &str) -> Result<(), ClientError> {
         output1= run_accept_loop(conn_manger,config) =>output1?,
         output2 = signal::ctrl_c() =>{
             output2.map_err(ClientError::WaitSignal)?;
-            log::info!(" - proxy server shutdown");
+            log::info!("proxy server shutdown");
         },
     };
     Ok(())

@@ -5,24 +5,19 @@ use crate::{
     common::msg::{server::ConnectResult, ClientMessage},
     services::proxy_server::send_message,
 };
-use actix_ws::{MessageStream, Session};
+use axum::extract::ws::WebSocket;
 use std::time::Duration;
 use tokio::{net::TcpStream, time::timeout};
 
-pub async fn run_proxy_tcp_loop(
-    mut session: Session,
-    mut msg_stream: MessageStream,
-) -> Result<(), ProxyError> {
+pub async fn run_proxy_tcp_loop(ws_stream: &mut WebSocket) -> Result<(), ProxyError> {
     loop {
         //读取客户端希望连接的地址、端口
-        let message = poll_message::poll_message(&mut session, &mut msg_stream).await?;
+        //log::info!("poll conn_dest");
+        let message = poll_message::poll_message(ws_stream).await?;
         let conn_dest = match message {
             ClientMessage::Conn(s) => s.0,
-            _ => {
-                //消息类型不对
-                _ = session.close(None).await;
-                return Err(ProxyError::NotConnMessage);
-            }
+            //消息类型不对
+            _ => return Err(ProxyError::NotConnMessage),
         };
         //指定超时时间, 执行connect
         log::info!("server connect {conn_dest}");
@@ -45,12 +40,14 @@ pub async fn run_proxy_tcp_loop(
                 }
             };
         //把连接远端的结果发给客户端
-        send_message::send_message(&mut session, conn_result_msg).await?;
+        send_message::send_message(ws_stream, conn_result_msg.into())
+            .await
+            .map_err(ProxyError::SendMessage)?;
         let remote_stream = match option_stream {
             Some(stream) => stream,
             None => continue,
         };
         //proxy
-        proxy_tcp(session.to_owned(), &mut msg_stream, remote_stream).await?;
+        proxy_tcp(ws_stream, remote_stream).await?;
     }
 }

@@ -2,6 +2,7 @@ use super::super::ParseMessageError;
 use bytes::Bytes;
 
 ///发送请求失败
+#[derive(Debug)]
 pub struct RequestFail(pub String);
 
 impl From<RequestFail> for Bytes {

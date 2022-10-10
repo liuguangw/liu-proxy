@@ -1,13 +1,15 @@
 use crate::common::msg::ServerMessage;
-use actix_ws::{Closed, Session};
+use axum::extract::ws::Message;
+use axum::Error as WsError;
 use bytes::Bytes;
+use futures_util::{Sink, SinkExt};
 
 ///发送消息
-pub async fn send_message<T: Into<ServerMessage>>(
-    session: &mut Session,
-    message: T,
-) -> Result<(), Closed> {
-    let server_msg = message.into();
+pub async fn send_message<T>(ws_stream: &mut T, server_msg: ServerMessage) -> Result<(), WsError>
+where
+    T: Sink<Message, Error = WsError> + Unpin,
+{
     let msg_bytes: Bytes = server_msg.into();
-    session.binary(msg_bytes).await
+    let message = Message::Binary(msg_bytes.to_vec());
+    ws_stream.send(message).await
 }

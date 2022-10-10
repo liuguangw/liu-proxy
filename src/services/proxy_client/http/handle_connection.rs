@@ -9,7 +9,6 @@ use super::{
     write_handshake_response::write_handshake_response,
 };
 use crate::services::read_raw_data;
-use actix_web::http;
 use bytes::{BufMut, BytesMut};
 use httparse::{Request, Status};
 use std::net::SocketAddr;

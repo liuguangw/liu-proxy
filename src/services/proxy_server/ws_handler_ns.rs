@@ -1,22 +1,39 @@
-use super::check_auth_user::check_auth_user;
+use super::check_auth::CheckAuth;
 use super::handle_connection::handle_connection;
-use crate::common::ServerConfig;
-use actix_web::{http::Method, rt, web, Either, HttpRequest, HttpResponse, Responder};
+use axum::response::IntoResponse;
+use axum::{
+    extract::WebSocketUpgrade,
+    response::{AppendHeaders, Response},
+};
+use http::{header::CONTENT_TYPE, StatusCode};
+use tokio::fs;
 
 ///处理websocket连接
 pub async fn ws_handler(
-    req: HttpRequest,
-    body: web::Payload,
-    config: web::Data<ServerConfig>,
-) -> Result<Either<HttpResponse, impl Responder>, actix_web::Error> {
-    //auth
-    if !check_auth_user(&req, &config.auth_users) {
-        //404
-        let err404_response = super::error_404_handler(Method::GET).await?;
-        return Ok(Either::Right(err404_response));
-    }
+    auth_data: Option<CheckAuth>,
+    ws_opt: Option<WebSocketUpgrade>,
+) -> Response {
+    let auth_data = match auth_data {
+        Some(s) => s,
+        None => return ws_error_handler().await,
+    };
     //执行握手
-    let (response, session, msg_stream) = actix_ws::handle(&req, body)?;
-    rt::spawn(handle_connection(session, msg_stream));
-    Ok(Either::Left(response))
+    match ws_opt {
+        Some(ws) => ws.on_upgrade(|ws_stream| handle_connection(ws_stream, auth_data.user)),
+        None => ws_error_handler().await,
+    }
+}
+
+///认证失败、握手失败时显示404错误页面
+async fn ws_error_handler() -> Response {
+    let error_file_data = match fs::read("./web/404.html").await {
+        Ok(s) => s,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+    (
+        StatusCode::NOT_FOUND,
+        AppendHeaders([(CONTENT_TYPE, "text/html; charset=utf-8")]),
+        error_file_data,
+    )
+        .into_response()
 }

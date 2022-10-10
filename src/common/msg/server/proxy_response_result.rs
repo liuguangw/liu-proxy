@@ -6,6 +6,7 @@ const STATUS_ERR: u8 = 1;
 const STATUS_CLOSED: u8 = 2;
 
 ///response
+#[derive(Debug)]
 pub enum ProxyResponseResult {
     ///成功
     Ok(Bytes),

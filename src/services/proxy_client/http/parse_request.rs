@@ -1,6 +1,6 @@
 use std::{num::ParseIntError, str::Utf8Error};
 
-use actix_web::http::{self, uri::InvalidUri, Uri};
+use http::{self, uri::InvalidUri, Uri};
 use httparse::Header;
 use thiserror::Error;
 

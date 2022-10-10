@@ -7,6 +7,7 @@ const MESSAGE_TYPE_RESPONSE_RESULT: u8 = 1;
 const MESSAGE_TYPE_REQUEST_FAIL: u8 = 2;
 
 ///服务端消息
+#[derive(Debug)]
 pub enum ServerMessage {
     ///连接远端的结果
     ConnResult(ConnectResult),
