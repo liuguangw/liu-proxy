@@ -1,6 +1,12 @@
 use super::{AddressType, ParseAddressTypeError};
 use bytes::{BufMut, Bytes, BytesMut};
-use std::{array::TryFromSliceError, fmt, net::IpAddr, ops::Range, str::Utf8Error};
+use std::{
+    array::TryFromSliceError,
+    fmt,
+    net::{IpAddr, Ipv4Addr},
+    ops::Range,
+    str::Utf8Error,
+};
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
@@ -15,6 +21,17 @@ pub enum ConnDestAddr {
 pub struct ConnDest {
     pub addr: ConnDestAddr,
     pub port: u16,
+}
+
+impl Default for ConnDest {
+    ///构造一个默认的地址和端口信息
+    fn default() -> Self {
+        let default_ip = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
+        Self {
+            addr: ConnDestAddr::Ip(default_ip),
+            port: 80,
+        }
+    }
 }
 
 ///解析目标地址和端口出错

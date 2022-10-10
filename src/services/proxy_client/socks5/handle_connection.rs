@@ -29,7 +29,7 @@ pub async fn handle_connection(
         Err(e) => {
             log::error!("{e}");
             //socket 5 通知失败信息
-            if let Err(e1) = write_handshake_response(&mut stream, &conn_dest, false).await {
+            if let Err(e1) = write_handshake_response(&mut stream, false).await {
                 log::error!("write socks5_response failed: {e1}");
             }
             return;
@@ -49,7 +49,7 @@ pub async fn handle_connection(
         }
     };
     //写入socks5_response
-    if let Err(e) = write_handshake_response(&mut stream, &conn_dest, conn_ok).await {
+    if let Err(e) = write_handshake_response(&mut stream, conn_ok).await {
         //回收连接
         if !is_ws_err {
             conn_manger.push_back_conn(ws_conn_pair).await;
