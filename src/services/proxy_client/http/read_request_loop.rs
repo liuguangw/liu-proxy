@@ -115,14 +115,16 @@ where
 {
     let mut buf = BytesMut::new();
     loop {
-        let mut headers = [httparse::EMPTY_HEADER; 16];
-        let mut req = httparse::Request::new(&mut headers);
+        //读取数据
         let raw_data = match read_new_buf(stream_reader, ws_writer).await? {
             Some(s) => s,
             //被主动断开
             None => return Ok(true),
         };
         buf.put_slice(&raw_data);
+        //解析
+        let mut headers = [httparse::EMPTY_HEADER; 16];
+        let mut req = httparse::Request::new(&mut headers);
         let offset_status = req.parse(&buf)?;
         //读取到了完整的http头信息
         if let Status::Complete(body_offset) = offset_status {

@@ -9,6 +9,7 @@ path = "/proxy/ws"
 use_ssl = false
 #ssl_cert_path = "./config/certs/localhost.crt"
 #ssl_key_path = "./config/certs/localhost.key"
+#worker_count = 4
 [client]
 address = "127.0.0.1"
 port = 8002

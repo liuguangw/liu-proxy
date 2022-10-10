@@ -4,7 +4,7 @@ use tokio::fs;
 use toml::Value;
 
 ///加载配置文件
-pub async fn load_config<'a, T: DeserializeOwned>(
+pub async fn load_config<T: DeserializeOwned>(
     config_file: &str,
     section: &'static str,
 ) -> Result<T, ConfigError> {

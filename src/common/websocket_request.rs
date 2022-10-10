@@ -13,16 +13,22 @@ use tokio_tungstenite::tungstenite::{
     Result as WsResult,
 };
 
+///根据客户端配置,构造握手请求数据 [`WebsocketRequest`] 出现的错误
 #[derive(Error, Debug)]
 pub enum ParseWebsocketRequestError {
+    ///url格式错误
     #[error("parse websocket uri failed: {0}")]
     UriErr(#[from] InvalidUri),
+    ///url中缺少host部分
     #[error("parse websocket uri failed: host field not found")]
     UriNoHostErr,
+    ///协议错误(只能是ws/wss)
     #[error("invalid scheme")]
     InvalidScheme,
+    ///解析服务端地址出错
     #[error("parse address failed: {0}")]
     ParseAddrErr(IoError),
+    ///无法解析出有效的地址
     #[error("resolve address failed")]
     ResolveErr,
 }

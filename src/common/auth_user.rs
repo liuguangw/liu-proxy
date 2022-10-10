@@ -7,7 +7,9 @@ const TOKEN_SALT: &str = "9a340544-8f74-4d1e-b3b0-32a769615902";
 #[derive(Deserialize, Debug, Clone)]
 ///授权用户
 pub struct AuthUser {
+    ///用户名
     pub user: String,
+    ///签名密钥
     pub key: String,
 }
 

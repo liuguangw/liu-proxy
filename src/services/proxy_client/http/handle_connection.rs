@@ -25,8 +25,7 @@ pub async fn handle_connection(
     let mut buf = BytesMut::new();
     buf.put_u8(first_byte);
     loop {
-        let mut headers = [httparse::EMPTY_HEADER; 16];
-        let mut req = httparse::Request::new(&mut headers);
+        //读取数据
         let raw_data = match read_raw_data::read_raw(&mut stream).await {
             Ok(s) => s,
             Err(e) => {
@@ -35,6 +34,9 @@ pub async fn handle_connection(
             }
         };
         buf.put_slice(&raw_data);
+        //解析
+        let mut headers = [httparse::EMPTY_HEADER; 16];
+        let mut req = httparse::Request::new(&mut headers);
         let offset_status = match req.parse(&buf) {
             Ok(s) => s,
             Err(e) => {
@@ -42,6 +44,7 @@ pub async fn handle_connection(
                 return;
             }
         };
+        //解析到完整的header头
         if let Status::Complete(body_offset) = offset_status {
             handle_request(stream, conn_manger, &req, &buf, body_offset).await;
             break;

@@ -52,6 +52,11 @@ pub async fn execute(config_file: &str) -> Result<(), ServerError> {
         server.bind(&listen_address)
     }
     .map_err(|e| ServerError::Bind(listen_address.to_string(), e))?;
+    //worker数量配置
+    let server = match &config.worker_count {
+        Some(s) => server.workers(*s),
+        None => server,
+    };
     //run
     server.run().await.map_err(ServerError::HttpService)?;
     log::info!("proxy server shutdown");
