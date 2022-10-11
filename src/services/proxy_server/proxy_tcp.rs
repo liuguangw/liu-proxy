@@ -16,7 +16,7 @@ use tokio::{
 
 pub async fn proxy_tcp(
     ws_stream: &mut WebSocket,
-    mut remote_stream: TcpStream,
+    remote_stream: &mut TcpStream,
 ) -> Result<(), ProxyError> {
     let (remote_reader, remote_writer) = remote_stream.split();
     let (ws_writer, ws_reader) = ws_stream.split();

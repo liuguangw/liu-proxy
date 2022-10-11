@@ -7,7 +7,7 @@ use crate::{
 };
 use axum::extract::ws::WebSocket;
 use std::time::Duration;
-use tokio::{net::TcpStream, time::timeout};
+use tokio::{io::AsyncWriteExt, net::TcpStream, time::timeout};
 
 pub async fn run_proxy_tcp_loop(ws_stream: &mut WebSocket) -> Result<(), ProxyError> {
     loop {
@@ -43,11 +43,14 @@ pub async fn run_proxy_tcp_loop(ws_stream: &mut WebSocket) -> Result<(), ProxyEr
         send_message::send_message(ws_stream, conn_result_msg.into())
             .await
             .map_err(ProxyError::SendMessage)?;
-        let remote_stream = match option_stream {
+        let mut remote_stream = match option_stream {
             Some(stream) => stream,
             None => continue,
         };
         //proxy
-        proxy_tcp(ws_stream, remote_stream).await?;
+        let proxy_result = proxy_tcp(ws_stream, &mut remote_stream).await;
+        //关闭打开的tcp连接
+        _ = remote_stream.shutdown().await;
+        proxy_result?;
     }
 }
