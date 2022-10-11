@@ -15,7 +15,7 @@ address = "127.0.0.1"
 port = 8002
 auth_user = { user = "aaaa", key = "123456" }
 server_url = "ws://localhost:8001/proxy/ws"
-max_idle_conns = 30
+max_idle_conns = 10
 extra_http_headers = [
     [
         "User-Agent",

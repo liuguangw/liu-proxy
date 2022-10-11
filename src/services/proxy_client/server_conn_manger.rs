@@ -113,7 +113,8 @@ impl ServerConnManger {
         }
         //指定每次ping测试时间限制
         let timeout_duration = Duration::from_millis(1800);
-        while let Some(mut conn_pair) = self.fetch_exist_conn().await {
+        //取一个连接,如果连接不可用就新建连接(不尝试连接池剩余的)
+        if let Some(mut conn_pair) = self.fetch_exist_conn().await {
             //判断取出的连接是否有效
             let tm_check_result =
                 timeout(timeout_duration, self.check_conn_status(&mut conn_pair)).await;
