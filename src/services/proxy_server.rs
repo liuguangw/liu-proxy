@@ -62,7 +62,6 @@ fn build_app(config: Arc<ServerConfig>) -> Router {
         ServeDir::new("./web/public").fallback(ServeFile::new("./web/404.html"));
     //路由配置
     Router::new()
-        .route("/foo", routing::get(|| async { "Hi from /foo" }))
         .route(&config.path, routing::get(ws_handler_ns::ws_handler))
         .fallback(routing::get_service(static_file_service).handle_error(handle_error))
         .layer(Extension(config))
