@@ -134,30 +134,28 @@ impl ServerConnManger {
         }
     }
 
-    ///将连接放回
+    ///将空闲连接放回
     pub async fn push_back_conn(&self, conn: ConnPair) {
         //不使用连接池
         if self.max_idle_conns == 0 {
             self.close_conn_pair(conn).await;
             return;
         }
-        let mut lock = self.conn_pool.lock().await;
-        let idle_conns = lock.len();
-        //空闲连接已满
-        if idle_conns >= (self.max_idle_conns as usize) {
-            /*log::info!(
-                "push_back_conn(full): idle_conns={}, max_idle_conns={}",
-                idle_conns,
-                self.max_idle_conns
-            );*/
-            self.close_conn_pair(conn).await;
-            return;
+        let mut old_conn_opt = None;
+        {
+            let mut lock = self.conn_pool.lock().await;
+            let idle_conns = lock.len();
+            //空闲连接已满
+            if idle_conns >= (self.max_idle_conns as usize) {
+                //弹出前面最旧的连接
+                old_conn_opt = lock.pop_front();
+            }
+            //把新连接放到后面
+            lock.push_back(conn);
         }
-        /*log::info!(
-            "push_back_conn(success): idle_conns={}, max_idle_conns={}",
-            idle_conns + 1,
-            self.max_idle_conns
-        );*/
-        lock.push_back(conn);
+        //关闭旧连接
+        if let Some(old_conn) = old_conn_opt {
+            self.close_conn_pair(old_conn).await;
+        }
     }
 }
