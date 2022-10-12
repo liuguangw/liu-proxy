@@ -38,11 +38,14 @@ where
                 super::send_message::send_message(ws_writer, disconn_msg)
                     .await
                     .map_err(ProxyError::SendRequest)?;
-                if e.kind() == ErrorKind::UnexpectedEof {
+                let err_kind = e.kind();
+                if err_kind == ErrorKind::UnexpectedEof || err_kind == ErrorKind::ConnectionAborted
+                {
                     //被主动断开
                     break;
                 } else {
                     //因为读取错误而断开
+                    //dbg!(&e);
                     return Err(ProxyError::ReadRequest(e));
                 }
             }
