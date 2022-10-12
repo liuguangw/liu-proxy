@@ -7,8 +7,8 @@ use futures_util::{
 };
 use rustls::ClientConfig as TlsClientConfig;
 use std::{collections::VecDeque, sync::Arc, time::Duration};
-use tokio::sync::Mutex;
 use tokio::{net::TcpStream, time::timeout};
+use tokio::{sync::Mutex, time};
 use tokio_tungstenite::{
     tungstenite::{handshake::server::Response, Error as WsError, Message},
     Connector, MaybeTlsStream, WebSocketStream,
@@ -156,6 +156,26 @@ impl ServerConnManger {
         //关闭旧连接
         if let Some(old_conn) = old_conn_opt {
             self.close_conn_pair(old_conn).await;
+        }
+    }
+    ///每隔一断时间检测一次空闲连接状态
+    pub async fn scan_conn_pool(&self) {
+        let mut interval = time::interval(Duration::from_secs(8));
+        loop {
+            interval.tick().await;
+            //log::info!("scan start");
+            let conn_count = {
+                let lock = self.conn_pool.lock().await;
+                lock.len()
+            };
+            //log::info!("conn total count={conn_count}");
+            for _i in 0..conn_count {
+                //log::info!("scan {}/{conn_count}", i + 1);
+                if let Ok(conn) = self.get_conn_pair().await {
+                    self.push_back_conn(conn).await;
+                }
+            }
+            //log::info!("scan end");
         }
     }
 }
