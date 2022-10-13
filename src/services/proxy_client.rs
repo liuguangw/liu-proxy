@@ -35,10 +35,12 @@ pub async fn execute(config_file: &str) -> Result<(), ClientError> {
         output1 = run_accept_loop(conn_manger.clone(), config) =>output1?,
         output2 = signal::ctrl_c() =>{
             output2.map_err(ClientError::WaitSignal)?;
-            log::info!("proxy server shutdown");
         },
         _ = conn_manger.scan_conn_pool() => (),
     };
+    log::info!("clear pool conns...");
+    conn_manger.clear_conns().await;
+    log::info!("proxy server shutdown");
     Ok(())
 }
 

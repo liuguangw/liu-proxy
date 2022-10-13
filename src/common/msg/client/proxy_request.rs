@@ -2,6 +2,7 @@ use super::super::ParseMessageError;
 use bytes::Bytes;
 
 ///request
+#[derive(Debug)]
 pub struct ProxyRequest(pub Bytes);
 
 impl From<ProxyRequest> for Bytes {

@@ -1,5 +1,5 @@
 use super::check_auth::CheckAuth;
-use super::handle_connection::handle_connection;
+use super::handle_connection;
 use axum::response::IntoResponse;
 use axum::{
     extract::WebSocketUpgrade,
@@ -19,7 +19,9 @@ pub async fn ws_handler(
     };
     //执行握手
     match ws_opt {
-        Some(ws) => ws.on_upgrade(|ws_stream| handle_connection(ws_stream, auth_data.user)),
+        Some(ws) => ws.on_upgrade(|ws_stream| {
+            handle_connection::handle_connection(ws_stream, auth_data.user)
+        }),
         None => ws_error_handler().await,
     }
 }

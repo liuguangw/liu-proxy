@@ -1,22 +1,25 @@
-use super::proxy_error::ProxyError;
-use super::run_proxy_tcp_loop::run_proxy_tcp_loop;
+use std::time::SystemTime;
+
+use super::client_session::ClientSession;
 use axum::extract::ws::WebSocket;
 
 ///处理连接逻辑
-pub async fn handle_connection(mut ws_stream: WebSocket, username: String) {
+pub async fn handle_connection(ws_stream: WebSocket, username: String) {
     log::info!("user {username} connected");
-    if let Err(proxy_error) = run_proxy_tcp_loop(&mut ws_stream).await {
-        match proxy_error {
-            ProxyError::ClientClosed => (),
-            ProxyError::NotConnMessage | ProxyError::NotRequestMessage => {
-                //关闭连接
-                _ = ws_stream.close().await;
-                log::error!("{proxy_error}");
-            }
-            _ => {
-                log::error!("{proxy_error}");
-            }
-        };
+    //开始计时
+    let time_start = SystemTime::now();
+    //
+    let mut client_session = ClientSession::new(username);
+    if let Err(proxy_error) = client_session.run_proxy(ws_stream).await {
+        log::error!("{proxy_error}");
     }
-    log::info!("user {username} disconnected");
+    //结束计时
+    let time_end = SystemTime::now();
+    let d = time_end.duration_since(time_start).unwrap();
+    log::info!(
+        "user {} disconnected, use_count={}, duration={}s",
+        &client_session.username,
+        client_session.use_count,
+        d.as_secs()
+    );
 }

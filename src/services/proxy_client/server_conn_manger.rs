@@ -96,12 +96,16 @@ impl ServerConnManger {
         ws_writer.send(Message::Ping(data)).await?;
         //等待pong
         let ws_reader = &mut conn_pair.1;
-        if let Some(message_result) = ws_reader.next().await {
+        while let Some(message_result) = ws_reader.next().await {
+            //log::info!("check1");
+            //可能收到上一轮的二进制消息(远端关闭比用户关闭快),或者pong
+            //dbg!(&message_result);
             let message = message_result?;
             if let Message::Pong(_) = message {
                 return Ok(());
             }
         }
+        //log::info!("check3");
         Err(WsError::AlreadyClosed)
     }
 
@@ -118,6 +122,7 @@ impl ServerConnManger {
             //判断取出的连接是否有效
             let tm_check_result =
                 timeout(timeout_duration, self.check_conn_status(&mut conn_pair)).await;
+            //dbg!(&tm_check_result);
             if let Ok(Ok(_)) = tm_check_result {
                 //log::info!("get_conn_pair(from pool)");
                 return Ok(conn_pair);
@@ -145,6 +150,7 @@ impl ServerConnManger {
         {
             let mut lock = self.conn_pool.lock().await;
             let idle_conns = lock.len();
+            //dbg!(idle_conns,self.max_idle_conns);
             //空闲连接已满
             if idle_conns >= (self.max_idle_conns as usize) {
                 //弹出前面最旧的连接
@@ -176,6 +182,13 @@ impl ServerConnManger {
                 }
             }
             //log::info!("scan end");
+        }
+    }
+
+    ///释放所有连接
+    pub async fn clear_conns(&self) {
+        while let Some(conn) = self.fetch_exist_conn().await {
+            self.close_conn_pair(conn).await;
         }
     }
 }

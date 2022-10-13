@@ -1,10 +1,9 @@
 mod check_auth;
+mod client_io;
+mod client_session;
 mod handle_connection;
-mod poll_message;
 mod proxy_error;
-mod proxy_tcp;
-mod run_proxy_tcp_loop;
-mod send_message;
+mod read_remote_stream;
 mod ws_handler_ns;
 
 use crate::common::{ServerConfig, ServerError};

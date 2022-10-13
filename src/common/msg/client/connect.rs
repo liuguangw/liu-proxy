@@ -2,6 +2,7 @@ use super::super::ParseMessageError;
 use bytes::Bytes;
 
 ///连接remote
+#[derive(Debug)]
 pub struct Connect(pub String);
 
 impl From<Connect> for Bytes {

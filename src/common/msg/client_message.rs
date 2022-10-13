@@ -7,6 +7,7 @@ const MESSAGE_TYPE_DIS_CONN: u8 = 1;
 const MESSAGE_TYPE_REQUEST: u8 = 2;
 
 ///客户端消息
+#[derive(Debug)]
 pub enum ClientMessage {
     ///连接远端
     Conn(Connect),
