@@ -61,9 +61,15 @@ fn build_app(config: Arc<ServerConfig>) -> Router {
         ServeDir::new("./web/public").fallback(ServeFile::new("./web/404.html"));
     //路由配置
     Router::new()
+        //websocket路由
         .route(&config.path, routing::get(ws_handler_ns::ws_handler))
+        //默认路由
         .fallback(routing::get_service(static_file_service).handle_error(handle_error))
         .layer(Extension(config))
+}
+
+async fn handle_error(_err: IoError) -> impl IntoResponse {
+    (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong...")
 }
 
 ///等待停止信号
@@ -100,8 +106,4 @@ async fn run_https(
         _ = wait_for_shutdown() =>(),
     };
     Ok(())
-}
-
-async fn handle_error(_err: IoError) -> impl IntoResponse {
-    (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong...")
 }

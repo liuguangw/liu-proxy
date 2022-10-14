@@ -1,10 +1,9 @@
-use super::proxy_error::ProxyError;
+use super::{client_io, proxy_error::ProxyError, read_remote_stream};
 use crate::common::msg::{
     client::{Connect, ProxyRequest},
     server::{ConnectResult, RequestFail},
     ClientMessage, ServerMessage,
 };
-use crate::services::proxy_server::{client_io, read_remote_stream};
 use axum::extract::ws::WebSocket;
 use futures_util::StreamExt;
 use std::time::Duration;
@@ -89,18 +88,21 @@ impl ClientSession {
             .await
             .map_err(|_| ProxyError::WriteChannel)?;
         if let Some(remote_stream) = option_stream {
+            //复用计数+1
             self.use_count += 1;
             log::info!(
                 "[{}]server connect {conn_dest} ok (#{})",
                 self.username,
                 self.use_count
             );
+            //处理远程连接
             let option_conn_msg = self.process_remote(remote_stream, tx, rx).await?;
             return Ok(option_conn_msg);
         }
         Ok(None)
     }
 
+    //处理远程连接io
     async fn process_remote(
         &mut self,
         mut remote_stream: TcpStream,

@@ -13,11 +13,12 @@ pub async fn ws_handler(
     auth_data: Option<CheckAuth>,
     ws_opt: Option<WebSocketUpgrade>,
 ) -> Response {
+    //身份认证
     let auth_data = match auth_data {
         Some(s) => s,
         None => return ws_error_handler().await,
     };
-    //执行握手
+    //执行websocket协议握手
     match ws_opt {
         Some(ws) => ws.on_upgrade(|ws_stream| {
             handle_connection::handle_connection(ws_stream, auth_data.user)

@@ -1,8 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{self, SystemTime},
-};
-
+use crate::common::ServerConfig;
 use axum::{
     async_trait,
     extract::{FromRequest, RequestParts},
@@ -10,9 +6,12 @@ use axum::{
     TypedHeader,
 };
 use bytes::{Buf, Bytes};
+use std::{
+    sync::Arc,
+    time::{self, SystemTime},
+};
 
-use crate::common::ServerConfig;
-
+///身份认证
 pub struct CheckAuth {
     pub user: String,
 }

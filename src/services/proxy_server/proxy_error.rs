@@ -11,7 +11,7 @@ pub enum ProxyError {
     WriteClient(WsError),
     #[error("reader channel closed")]
     ReadChannel,
-    #[error("write channel closed")]
+    #[error("writer channel closed")]
     WriteChannel,
     #[error("parse message failed: {0}")]
     ParseMessage(#[from] ParseMessageError),
