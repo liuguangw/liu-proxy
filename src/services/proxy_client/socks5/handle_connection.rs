@@ -6,7 +6,7 @@ use super::{
     proxy_handshake::proxy_handshake,
     write_handshake_response::write_handshake_response,
 };
-use crate::common::{RouteConfigCom, RouteConfigAction};
+use crate::common::{RouteConfigAction, RouteConfigCom};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpStream;
 

@@ -20,7 +20,7 @@ pub use client_config::ClientConfig;
 pub use client_error::ClientError;
 pub use config_error::ConfigError;
 pub use no_verify::NoServerCertVerifier;
-pub use route_config::{RouteConfig,RouteConfigAction};
+pub use route_config::{RouteConfig, RouteConfigAction};
 pub use route_config_com::{RouteConfigCom, RouteConfigRuleCom};
 pub use server_config::ServerConfig;
 pub use server_error::ServerError;

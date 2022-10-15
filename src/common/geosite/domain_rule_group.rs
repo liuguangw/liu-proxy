@@ -21,7 +21,7 @@ impl DomainRuleGroup {
             DomainRuleType::Full => &mut self.full_list,
         };
         //if !coll.contains(&rule) {
-            coll.push(rule);
+        coll.push(rule);
         //}
     }
     pub fn merge_group(&mut self, group: DomainRuleGroup) {
@@ -45,7 +45,7 @@ impl DomainRuleGroup {
             };
             for rule in from_list {
                 //if !target_list.contains(&rule) {
-                    target_list.push(rule);
+                target_list.push(rule);
                 //}
             }
         }
