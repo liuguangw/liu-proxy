@@ -1,3 +1,5 @@
 /target
 /config/certs
 /.vscode
+/geo_data_src
+/data

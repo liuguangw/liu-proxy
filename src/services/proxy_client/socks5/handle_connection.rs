@@ -6,7 +6,8 @@ use super::{
     proxy_handshake::proxy_handshake,
     write_handshake_response::write_handshake_response,
 };
-use std::net::SocketAddr;
+use crate::common::{RouteConfigCom, RouteConfigAction};
+use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpStream;
 
 ///处理socks5连接
@@ -14,6 +15,7 @@ pub async fn handle_connection(
     mut stream: TcpStream,
     addr: SocketAddr,
     conn_manger: ServerConnManger,
+    route_config: Arc<RouteConfigCom>,
 ) {
     //socks5初步握手,获取目标地址,端口
     let conn_dest = match proxy_handshake(&mut stream).await {
@@ -23,6 +25,15 @@ pub async fn handle_connection(
             return;
         }
     };
+    let t_action = route_config.match_action(&conn_dest.to_string());
+    log::info!("[{t_action:?}]{conn_dest}");
+    if let RouteConfigAction::Block = t_action {
+        //socket 5 通知失败信息
+        if let Err(e1) = write_handshake_response(&mut stream, false).await {
+            log::error!("write socks5_response failed: {e1}");
+        }
+        return;
+    }
     //向服务端发起websocket连接,并进行认证
     let mut ws_conn_pair = match conn_manger.get_conn_pair().await {
         Ok(s) => s,

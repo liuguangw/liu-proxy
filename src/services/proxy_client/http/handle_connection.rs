@@ -8,10 +8,13 @@ use super::{
     run_proxy_request_loop::run_proxy_request_loop,
     write_handshake_response::write_handshake_response,
 };
-use crate::services::read_raw_data;
+use crate::{
+    common::{RouteConfigAction, RouteConfigCom},
+    services::read_raw_data,
+};
 use bytes::{BufMut, BytesMut};
 use httparse::{Request, Status};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpStream;
 
 ///处理http连接
@@ -19,6 +22,7 @@ pub async fn handle_connection(
     mut stream: TcpStream,
     _addr: SocketAddr,
     conn_manger: ServerConnManger,
+    route_config: Arc<RouteConfigCom>,
     first_byte: u8,
 ) {
     let mut buf = BytesMut::new();
@@ -45,7 +49,7 @@ pub async fn handle_connection(
         };
         //解析到完整的header头
         if let Status::Complete(body_offset) = offset_status {
-            handle_request(stream, conn_manger, &req, &buf, body_offset).await;
+            handle_request(stream, conn_manger, route_config, &req, &buf, body_offset).await;
             break;
         }
     }
@@ -54,6 +58,7 @@ pub async fn handle_connection(
 async fn handle_request(
     mut stream: TcpStream,
     conn_manger: ServerConnManger,
+    route_config: Arc<RouteConfigCom>,
     req: &Request<'_, '_>,
     buf: &[u8],
     body_offset: usize,
@@ -77,6 +82,16 @@ async fn handle_request(
     } else {
         "1.0"
     };
+    let t_action = route_config.match_action(&conn_dest.to_string());
+    log::info!("[{t_action:?}]{conn_dest}");
+    if let RouteConfigAction::Block = t_action {
+        //通知失败信息
+        if let Err(e1) = write_handshake_response(&mut stream, http_version, req_path, false).await
+        {
+            log::error!("write http_response failed: {e1}");
+        }
+        return;
+    }
     //向服务端发起websocket连接,并进行认证
     let mut ws_conn_pair = match conn_manger.get_conn_pair().await {
         Ok(s) => s,

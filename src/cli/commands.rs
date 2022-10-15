@@ -1,5 +1,6 @@
 use super::{
-    app_command::AppCommand, hello_command::HelloCommand, proxy_client_command::ProxyClientCommand,
+    app_command::AppCommand, build_geosite_command::BuildGeositeCommand,
+    hello_command::HelloCommand, proxy_client_command::ProxyClientCommand,
     proxy_server_command::ProxyServerCommand,
 };
 use chrono::Local;
@@ -16,6 +17,8 @@ pub enum Commands {
     ProxyServer(ProxyServerCommand),
     #[clap(name = "client", about = "proxy client command")]
     ProxyClient(ProxyClientCommand),
+    #[clap(name = "build_geosite", about = "build geosite data file command")]
+    BuildGeoSite(BuildGeositeCommand),
 }
 
 impl AppCommand for Commands {
@@ -26,6 +29,7 @@ impl AppCommand for Commands {
             Self::Hello(s) => s.execute(),
             Self::ProxyServer(s) => s.execute(),
             Self::ProxyClient(s) => s.execute(),
+            Self::BuildGeoSite(s) => s.execute(),
         }
     }
 }

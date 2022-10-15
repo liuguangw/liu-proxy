@@ -1,4 +1,5 @@
 use super::{ConfigError, ParseWebsocketRequestError};
+use crate::services::geosite::{FromBinaryError, ParseSelectionError};
 use std::io::Error as IoError;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite::Error as WsError;
@@ -18,4 +19,8 @@ pub enum ClientError {
     CheckConn(WsError),
     #[error("run http service failed: {0}")]
     HttpService(IoError),
+    #[error("load geosite data failed: {0}")]
+    LoadGeoSite(#[from] FromBinaryError),
+    #[error("parse route selection failed: {0}")]
+    ParseRouteSelection(#[from] ParseSelectionError),
 }
