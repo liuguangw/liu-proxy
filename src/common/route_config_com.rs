@@ -18,23 +18,25 @@ pub struct RouteConfigRuleCom {
 
 impl RouteConfigCom {
     pub fn match_action(&self, conn_dest: &str) -> RouteConfigAction {
-        let (host, is_domain) = {
-            let pos = conn_dest.rfind(':').unwrap();
-            let host = &conn_dest[..pos];
+        let pos = conn_dest.rfind(':').unwrap();
+        let host = &conn_dest[..pos];
+        let is_domain = {
             if host.contains(':') {
                 //ipv6
-                (host, false)
+                false
             } else {
-                let r = Regex::new("^\\d+\\.{3}\\d+$").expect("load ipv4 regexp failed");
-                if r.is_match(host) {
-                    (host, false)
-                } else {
-                    (host, true)
+                match host.rfind('.') {
+                    Some(pos) => {
+                        let root_domain = &host[pos + 1..];
+                        let num_rexp = Regex::new("^\\d+$").unwrap();
+                        !num_rexp.is_match(root_domain)
+                    }
+                    None => true,
                 }
             }
         };
         if !is_domain {
-            log::info!("[is_ip]{host}");
+            //log::info!("[is_ip]{host}");
             let ip_addr: IpAddr = match host.parse() {
                 Ok(s) => s,
                 Err(e) => {
