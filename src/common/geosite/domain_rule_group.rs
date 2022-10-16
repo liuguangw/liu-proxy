@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use regex::Regex;
 
 use super::{DomainRule, DomainRuleType};
@@ -5,10 +7,10 @@ use super::{DomainRule, DomainRuleType};
 ///代表选择的一组匹配规则
 #[derive(Debug, Default)]
 pub struct DomainRuleGroup {
-    pub domain_list: Vec<DomainRule>,
-    pub keyword_list: Vec<DomainRule>,
-    pub regexp_list: Vec<DomainRule>,
-    pub full_list: Vec<DomainRule>,
+    pub domain_list: HashSet<String>,
+    pub keyword_list: HashSet<String>,
+    pub regexp_list: HashSet<String>,
+    pub full_list: HashSet<String>,
 }
 
 impl DomainRuleGroup {
@@ -20,11 +22,9 @@ impl DomainRuleGroup {
             DomainRuleType::Regexp => &mut self.regexp_list,
             DomainRuleType::Full => &mut self.full_list,
         };
-        //if !coll.contains(&rule) {
-        coll.push(rule);
-        //}
+        coll.insert(rule.value);
     }
-    pub fn merge_group(&mut self, group: DomainRuleGroup) {
+    pub fn add_group(&mut self, group: DomainRuleGroup) {
         let src_list = [
             group.domain_list,
             group.keyword_list,
@@ -43,30 +43,26 @@ impl DomainRuleGroup {
             } else {
                 panic!("invalid index")
             };
-            for rule in from_list {
-                //if !target_list.contains(&rule) {
-                target_list.push(rule);
-                //}
-            }
+            target_list.extend(from_list);
         }
     }
 
     pub fn match_domain(&self, domain: &str) -> bool {
         //完全匹配
         for s in &self.full_list {
-            if s.value == domain {
+            if s == domain {
                 return true;
             }
         }
         //域名匹配
         for s in &self.domain_list {
-            if s.value == domain {
+            if s == domain {
                 return true;
             }
-            let r_domain = if s.value.starts_with('.') {
-                s.value.to_string()
+            let r_domain = if s.starts_with('.') {
+                s.to_string()
             } else {
-                format!(".{}", s.value)
+                format!(".{s}")
             };
             if domain.ends_with(&r_domain) {
                 return true;
@@ -74,16 +70,16 @@ impl DomainRuleGroup {
         }
         //关键词
         for s in &self.keyword_list {
-            if domain.contains(&s.value) {
+            if domain.contains(s) {
                 return true;
             }
         }
         //正则表达式
         for s in &self.regexp_list {
-            let re = match Regex::new(&s.value) {
+            let re = match Regex::new(s) {
                 Ok(s) => s,
                 Err(e) => {
-                    log::error!("rexp {} error: {e}", &s.value);
+                    log::error!("rexp {} error: {e}", s);
                     continue;
                 }
             };

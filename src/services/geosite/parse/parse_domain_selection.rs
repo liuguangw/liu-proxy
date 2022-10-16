@@ -7,24 +7,24 @@ use futures_util::future::Either;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ParseSelectionError {
+pub enum ParseDomainSelectionError {
     #[error("invalid type {0}")]
     InvalidType(String),
     #[error("geosite:{0} not found")]
     GeoSiteNotFound(String),
 }
 
-///解析路由配置中的selection字段
-pub fn parse_route_selection(
+///解析路由配置中的selection字段选择的域名
+pub fn parse_domain_selection(
     selection_list: &[String],
     geosite_data: &GeoSite,
-) -> Result<DomainRuleGroup, ParseSelectionError> {
+) -> Result<DomainRuleGroup, ParseDomainSelectionError> {
     let mut rule_group = DomainRuleGroup::default();
     for selection_node in selection_list {
         let rules = parse_route_selection_node(selection_node, geosite_data)?;
         match rules {
             Either::Left(s) => rule_group.add_rule(s),
-            Either::Right(group) => rule_group.merge_group(group),
+            Either::Right(group) => rule_group.add_group(group),
         }
     }
     Ok(rule_group)
@@ -33,7 +33,7 @@ pub fn parse_route_selection(
 fn parse_route_selection_node(
     selection_node: &str,
     geosite_data: &GeoSite,
-) -> Result<Either<DomainRule, DomainRuleGroup>, ParseSelectionError> {
+) -> Result<Either<DomainRule, DomainRuleGroup>, ParseDomainSelectionError> {
     let (t_type, s_text) = match selection_node.find(':') {
         Some(s) => {
             let t_type_text = selection_node[..s].trim();
@@ -50,7 +50,9 @@ fn parse_route_selection_node(
                 let group = parse_geosite(s_text, geosite_data)?;
                 return Ok(Either::Right(group));
             } else {
-                return Err(ParseSelectionError::InvalidType(t_type_text.to_string()));
+                return Err(ParseDomainSelectionError::InvalidType(
+                    t_type_text.to_string(),
+                ));
             }
         }
         //默认为域名
@@ -63,7 +65,7 @@ fn parse_route_selection_node(
 fn parse_geosite(
     s_text: &str,
     geosite_data: &GeoSite,
-) -> Result<DomainRuleGroup, ParseSelectionError> {
+) -> Result<DomainRuleGroup, ParseDomainSelectionError> {
     let (file_name, attr_filter) = match s_text.find('@') {
         Some(pos) => {
             let file_name = s_text[..pos].trim();
@@ -79,17 +81,19 @@ fn parse_geosite(
         }
         None => (s_text, None),
     };
-    let geosite_file_rules = match geosite_data.file_rules.get(file_name) {
+    let rule_ids = match geosite_data.file_rules.get(file_name) {
         Some(s) => s,
-        None => return Err(ParseSelectionError::GeoSiteNotFound(file_name.to_string())),
+        None => {
+            return Err(ParseDomainSelectionError::GeoSiteNotFound(
+                file_name.to_string(),
+            ))
+        }
     };
     let mut group = DomainRuleGroup::default();
-    for rule_ids in geosite_file_rules.iter().flatten() {
-        for rule_id in rule_ids {
-            let rule = geosite_data.all_rules.get(*rule_id).unwrap();
-            if rule.match_attrs(attr_filter.as_ref()) {
-                group.add_rule(rule.to_owned());
-            }
+    for rule_id in rule_ids {
+        let rule = geosite_data.all_rules.get(*rule_id).unwrap();
+        if rule.match_attrs(attr_filter.as_ref()) {
+            group.add_rule(rule.to_owned());
         }
     }
     Ok(group)

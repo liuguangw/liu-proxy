@@ -7,6 +7,6 @@ use std::collections::{HashMap, HashSet};
 pub struct GeoSite {
     ///所有规则列表
     pub all_rules: Vec<DomainRule>,
-    ///文件=>4种规则的id映射
-    pub file_rules: HashMap<String, [Option<HashSet<usize>>; 4]>,
+    ///文件=>id映射
+    pub file_rules: HashMap<String, HashSet<usize>>,
 }

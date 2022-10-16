@@ -1,6 +1,4 @@
-use crate::common::geosite::{
-    DomainRule, DomainRuleAttr, DomainRuleType, GeoSite, ParseDomainRuleError,
-};
+use crate::common::geosite::{DomainRule, DomainRuleType, GeoSite, ParseDomainRuleError};
 use std::{
     collections::{HashMap, HashSet},
     io::Error as IoError,
@@ -34,52 +32,37 @@ pub async fn from_source_dir(source_dir: &str) -> Result<GeoSite, FromSourceErro
     for (index, file_name) in source_rules_map.keys().enumerate() {
         //依次解析每个文件里面的include指令
         log::info!("resolve [{}/{file_count}]{file_name}", index + 1);
-        resolve_rules(&source_rules_map, file_name, None, &mut rules_map)?;
+        resolve_rules(&source_rules_map, file_name, &mut rules_map)?;
     }
     //
     //
     let mut all_rules = Vec::new();
     let mut insert_rule_fn = |rule| {
+        //如果存在,则返回索引位置
         for (i, item) in all_rules.iter().enumerate() {
             if item == &rule {
                 return i;
             }
         }
+        //push之后返回位置
         all_rules.push(rule);
         all_rules.len() - 1
     };
-    let mut file_rules = HashMap::new();
+    let mut file_rules_map = HashMap::new();
     let mut index = 0;
     for (file_name, v_rules) in rules_map {
         index += 1;
         log::info!("parse [{}/{file_count}]{file_name}", index + 1);
-        let mut n_file_rules: [Option<HashSet<usize>>; 4] = [None, None, None, None];
+        let mut file_rules_set = HashSet::new();
         for rule in v_rules {
-            let rule_type = rule.rule_type.clone();
             let rule_id = insert_rule_fn(rule);
-            let target_node = match rule_type {
-                DomainRuleType::Include => panic!("invalid include here"),
-                DomainRuleType::Domain => &mut n_file_rules[0],
-                DomainRuleType::Keyword => &mut n_file_rules[1],
-                DomainRuleType::Regexp => &mut n_file_rules[2],
-                DomainRuleType::Full => &mut n_file_rules[3],
-            };
-            match target_node {
-                Some(coll) => {
-                    coll.insert(rule_id);
-                }
-                None => {
-                    let mut coll = HashSet::new();
-                    coll.insert(rule_id);
-                    *target_node = Some(coll);
-                }
-            }
+            file_rules_set.insert(rule_id);
         }
-        file_rules.insert(file_name.to_string(), n_file_rules);
+        file_rules_map.insert(file_name.to_string(), file_rules_set);
     }
     Ok(GeoSite {
         all_rules,
-        file_rules,
+        file_rules: file_rules_map,
     })
 }
 
@@ -139,33 +122,32 @@ async fn load_source_rules(
 ///解析rules,处理include
 fn resolve_rules(
     source_rules_map: &HashMap<String, Vec<DomainRule>>,
-    source_file: &str,
-    attrs_filter: Option<&HashSet<DomainRuleAttr>>,
+    file_name: &str,
     rules_map: &mut HashMap<String, Vec<DomainRule>>,
 ) -> Result<(), FromSourceError> {
-    if rules_map.contains_key(source_file) {
+    if rules_map.contains_key(file_name) {
         return Ok(());
     }
-    let src_rules = match source_rules_map.get(source_file) {
+    let src_rules = match source_rules_map.get(file_name) {
         Some(s) => s.as_slice(),
-        None => return Err(FromSourceError::IncludeNotFound(source_file.to_string())),
+        None => return Err(FromSourceError::IncludeNotFound(file_name.to_string())),
     };
     let mut dest_rules = Vec::with_capacity(src_rules.len());
     for rule in src_rules {
         if rule.rule_type == DomainRuleType::Include {
-            let sub_source_file = rule.value.as_str();
+            let sub_file_name = rule.value.as_str();
+            resolve_rules(source_rules_map, sub_file_name, rules_map)?;
+            let sub_rules = rules_map.get(sub_file_name).unwrap();
             let sub_attrs_filter = rule.attrs.as_ref();
-            resolve_rules(source_rules_map, sub_source_file, None, rules_map)?;
-            let sub_rules = rules_map.get(sub_source_file).unwrap();
             for sub_rule in sub_rules {
                 if sub_rule.match_attrs(sub_attrs_filter) {
                     dest_rules.push(sub_rule.to_owned());
                 }
             }
-        } else if rule.match_attrs(attrs_filter) {
+        } else {
             dest_rules.push(rule.to_owned());
         }
     }
-    rules_map.insert(source_file.to_string(), dest_rules);
+    rules_map.insert(file_name.to_string(), dest_rules);
     Ok(())
 }

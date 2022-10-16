@@ -28,7 +28,7 @@ pub async fn load_route_config(
     };
     let time_1 = SystemTime::now();
     for rule in routes_config.rules {
-        let selection = geosite::parse_route_selection(&rule.selection, &geosite_data)?;
+        let selection = geosite::parse_domain_selection(&rule.selection, &geosite_data)?;
         let t_action = rule.t_action;
         route_config_com.rules.push(RouteConfigRuleCom {
             t_action,
