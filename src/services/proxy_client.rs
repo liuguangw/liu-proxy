@@ -1,4 +1,5 @@
 mod check_server_conn;
+mod connection;
 mod handle_connection;
 mod http;
 mod load_route_config;
@@ -10,11 +11,10 @@ mod send_message;
 mod server_conn_manger;
 mod socks5;
 
-use std::sync::Arc;
-
 use crate::common::{ClientConfig, ClientError, RouteConfigCom};
 use crate::services;
 use server_conn_manger::ServerConnManger;
+use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::signal;
 

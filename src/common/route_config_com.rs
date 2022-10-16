@@ -7,13 +7,24 @@ use super::{geosite::DomainRuleGroup, route_config::RouteConfigAction};
 ///解析处理过的路由配置
 #[derive(Debug)]
 pub struct RouteConfigCom {
-    pub default_action: RouteConfigAction,
-    pub rules: Vec<RouteConfigRuleCom>,
+    pub default_domain_action: RouteConfigAction,
+    pub default_ip_action: RouteConfigAction,
+    pub domain_rules: Vec<RouteConfigRuleCom>,
 }
 #[derive(Debug)]
 pub struct RouteConfigRuleCom {
     pub t_action: RouteConfigAction,
     pub selection: DomainRuleGroup,
+}
+
+impl Default for RouteConfigCom {
+    fn default() -> Self {
+        Self {
+            default_domain_action: RouteConfigAction::Proxy,
+            default_ip_action: RouteConfigAction::Proxy,
+            domain_rules: Vec::default(),
+        }
+    }
 }
 
 impl RouteConfigCom {
@@ -41,7 +52,7 @@ impl RouteConfigCom {
                 Ok(s) => s,
                 Err(e) => {
                     log::error!("parse ip {host} failed: {e}");
-                    return self.default_action;
+                    return self.default_ip_action;
                 }
             };
             let need_direct = match ip_addr {
@@ -53,13 +64,13 @@ impl RouteConfigCom {
             if need_direct {
                 return RouteConfigAction::Direct;
             }
-            return RouteConfigAction::Proxy;
+            return self.default_ip_action;
         }
-        for rule in &self.rules {
+        for rule in &self.domain_rules {
             if rule.selection.match_domain(host) {
                 return rule.t_action;
             }
         }
-        self.default_action
+        self.default_domain_action
     }
 }

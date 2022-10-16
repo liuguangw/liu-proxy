@@ -1,16 +1,16 @@
 use super::{
-    super::{
-        check_server_conn::check_server_conn, run_proxy_tcp_loop::run_proxy_tcp_loop,
-        server_conn_manger::ServerConnManger,
-    },
+    super::{run_proxy_tcp_loop::run_proxy_tcp_loop, server_conn_manger::ServerConnManger},
     build_request,
     parse_request::{parse_conn_dest, parse_request_body_size},
     run_proxy_request_loop::run_proxy_request_loop,
     write_handshake_response::write_handshake_response,
 };
 use crate::{
-    common::{RouteConfigAction, RouteConfigCom},
-    services::read_raw_data,
+    common::RouteConfigCom,
+    services::{
+        proxy_client::connection::{ConnectionError, RemoteConnection},
+        read_raw_data,
+    },
 };
 use bytes::{BufMut, BytesMut};
 use httparse::{Request, Status};
@@ -82,22 +82,14 @@ async fn handle_request(
     } else {
         "1.0"
     };
-    let t_action = route_config.match_action(&conn_dest.to_string());
-    log::info!("[{t_action:?}]{conn_dest}");
-    if let RouteConfigAction::Block = t_action {
-        //通知失败信息
-        if let Err(e1) = write_handshake_response(&mut stream, http_version, req_path, false).await
-        {
-            log::error!("write http_response failed: {e1}");
-        }
-        return;
-    }
-    //向服务端发起websocket连接,并进行认证
-    let mut ws_conn_pair = match conn_manger.get_conn_pair().await {
+    let remote_conn = match RemoteConnection::connect(&conn_dest, &conn_manger, &route_config).await
+    {
         Ok(s) => s,
         Err(e) => {
-            log::error!("{e}");
-            //通知失败信息
+            if !matches!(e, ConnectionError::RouteBlocked) {
+                log::error!("{e}");
+            }
+            //http 通知失败信息
             if let Err(e1) =
                 write_handshake_response(&mut stream, http_version, req_path, false).await
             {
@@ -106,43 +98,17 @@ async fn handle_request(
             return;
         }
     };
-    let mut is_ws_err = false;
-    //把目标地址端口发给server,并检测server连接结果
-    let conn_result = check_server_conn(&mut ws_conn_pair, &conn_dest).await;
-    let conn_ok = conn_result.is_ok();
-    match conn_result {
-        Ok(_) => {
-            log::info!("server conn {conn_dest} ok");
-        }
-        Err(e) => {
-            log::error!("server conn {conn_dest} failed: {e}");
-            is_ws_err = e.is_ws_error();
-        }
-    };
-    //通知server conn结果
     //CONNECT请求: 写入http_response
-    //非CONNECT请求: 失败时写入http_response
-    if is_connect || !conn_ok {
-        if let Err(e) = write_handshake_response(&mut stream, http_version, req_path, conn_ok).await
-        {
+    if is_connect {
+        if let Err(e) = write_handshake_response(&mut stream, http_version, req_path, true).await {
             //回收连接
-            if !is_ws_err {
-                conn_manger.push_back_conn(ws_conn_pair).await;
-            }
+            remote_conn.push_back_conn(&conn_manger).await;
             log::error!("write http_response failed: {e}");
             return;
         }
     }
-    //server连接remote失败
-    if !conn_ok {
-        //回收连接
-        if !is_ws_err {
-            conn_manger.push_back_conn(ws_conn_pair).await;
-        }
-        return;
-    }
     let proxy_result = if is_connect {
-        run_proxy_tcp_loop(&conn_manger, ws_conn_pair, stream).await
+        run_proxy_tcp_loop(&conn_manger, remote_conn, stream).await
     } else {
         let first_request_data = build_request::build_request_data(req, buf, body_offset);
         let body_total_size = match parse_request_body_size(req.headers) {
@@ -150,7 +116,7 @@ async fn handle_request(
             Err(e) => {
                 log::error!("parse body size failed: {e}");
                 //回收连接
-                conn_manger.push_back_conn(ws_conn_pair).await;
+                remote_conn.push_back_conn(&conn_manger).await;
                 return;
             }
         };
@@ -161,7 +127,7 @@ async fn handle_request(
         };
         run_proxy_request_loop(
             &conn_manger,
-            ws_conn_pair,
+            remote_conn,
             stream,
             first_request_data,
             remain_data_size,

@@ -1,30 +1,27 @@
-use super::super::{proxy_error::ProxyError, send_message};
+use super::super::proxy_error::ProxyError;
 use super::build_request;
 use super::parse_request::parse_request_body_size;
-use crate::common::msg::{client::ProxyRequest, ClientMessage};
+use crate::services::proxy_client::connection::ConnWriter;
 use crate::services::read_raw_data;
 use bytes::{BufMut, Bytes, BytesMut};
-use futures_util::Sink;
 use httparse::Status;
 use std::io::ErrorKind;
 use tokio::io::AsyncRead;
-use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 ///将客户端请求转发给server
-pub async fn read_request_loop<T, U>(
+pub async fn read_request_loop<T>(
     stream_reader: &mut T,
-    ws_writer: &mut U,
+    remote_conn_writer: &mut ConnWriter<'_>,
     first_request_data: Bytes,
     remain_data_size: usize,
 ) -> Result<(), ProxyError>
 where
     T: AsyncRead + Unpin,
-    U: Sink<Message, Error = WsError> + Unpin,
 {
     //发送第一个请求
     let is_disconn = send_request_data(
         stream_reader,
-        ws_writer,
+        remote_conn_writer,
         first_request_data,
         remain_data_size,
     )
@@ -34,7 +31,7 @@ where
     }
     //循环读取剩余的请求,并发送
     loop {
-        let is_disconn = process_request(stream_reader, ws_writer).await?;
+        let is_disconn = process_request(stream_reader, remote_conn_writer).await?;
         if is_disconn {
             break;
         }
@@ -43,51 +40,45 @@ where
 }
 
 ///从stream_reader读取新数据,如果连接被断开则会得到None,其他错误则是Err
-async fn read_new_buf<T, U>(
+async fn read_new_buf<T>(
     stream_reader: &mut T,
-    ws_writer: &mut U,
+    remote_conn_writer: &mut ConnWriter<'_>,
 ) -> Result<Option<Bytes>, ProxyError>
 where
     T: AsyncRead + Unpin,
-    U: Sink<Message, Error = WsError> + Unpin,
 {
     match read_raw_data::read_raw(stream_reader).await {
         Ok(data) => Ok(Some(data)),
         Err(e) => {
             //proxy被断开,通知服务端断开remote
-            let disconn_msg = ClientMessage::DisConn;
-            send_message::send_message(ws_writer, disconn_msg)
-                .await
-                .map_err(ProxyError::SendRequest)?;
-            if e.kind() == ErrorKind::UnexpectedEof {
+            remote_conn_writer.process_client_close().await?;
+            let err_kind = e.kind();
+            if err_kind == ErrorKind::UnexpectedEof || err_kind == ErrorKind::ConnectionAborted {
                 //被主动断开
                 Ok(None)
             } else {
                 //因为读取错误而断开
+                //dbg!(&e);
                 Err(ProxyError::ReadRequest(e))
             }
         }
     }
 }
 
-async fn send_request_data<T, U>(
+async fn send_request_data<T>(
     stream_reader: &mut T,
-    ws_writer: &mut U,
+    remote_conn_writer: &mut ConnWriter<'_>,
     request_data: Bytes,
     mut remain_data_size: usize,
 ) -> Result<bool, ProxyError>
 where
     T: AsyncRead + Unpin,
-    U: Sink<Message, Error = WsError> + Unpin,
 {
     //发送request的数据
-    let request_msg = ProxyRequest(request_data);
-    send_message::send_message(ws_writer, request_msg)
-        .await
-        .map_err(ProxyError::SendRequest)?;
+    remote_conn_writer.write_data(request_data).await?;
     //发送剩余的数据
     while remain_data_size > 0 {
-        let raw_data = match read_new_buf(stream_reader, ws_writer).await? {
+        let raw_data = match read_new_buf(stream_reader, remote_conn_writer).await? {
             Some(s) => s,
             //被主动断开
             None => return Ok(true),
@@ -99,24 +90,23 @@ where
             log::error!("bad request overflow");
             remain_data_size = 0;
         }
-        let request_msg = ProxyRequest(raw_data);
-        send_message::send_message(ws_writer, request_msg)
-            .await
-            .map_err(ProxyError::SendRequest)?;
+        remote_conn_writer.write_data(raw_data).await?;
     }
     //正常,未被断开
     Ok(false)
 }
 
-async fn process_request<T, U>(stream_reader: &mut T, ws_writer: &mut U) -> Result<bool, ProxyError>
+async fn process_request<T>(
+    stream_reader: &mut T,
+    remote_conn_writer: &mut ConnWriter<'_>,
+) -> Result<bool, ProxyError>
 where
     T: AsyncRead + Unpin,
-    U: Sink<Message, Error = WsError> + Unpin,
 {
     let mut buf = BytesMut::new();
     loop {
         //读取数据
-        let raw_data = match read_new_buf(stream_reader, ws_writer).await? {
+        let raw_data = match read_new_buf(stream_reader, remote_conn_writer).await? {
             Some(s) => s,
             //被主动断开
             None => return Ok(true),
@@ -136,8 +126,13 @@ where
             } else {
                 0
             };
-            return send_request_data(stream_reader, ws_writer, request_data, remain_data_size)
-                .await;
+            return send_request_data(
+                stream_reader,
+                remote_conn_writer,
+                request_data,
+                remain_data_size,
+            )
+            .await;
         }
     }
 }

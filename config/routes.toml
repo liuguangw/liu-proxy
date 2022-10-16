@@ -1,7 +1,9 @@
 [client]
-# 默认直连
-default_action = "direct"
-rules = [
+# 域名默认直连
+default_domain_action = "direct"
+# ip默认代理
+default_ip_action = "proxy"
+domain_rules = [
     { action = "direct", selection = [
         "geosite:google@cn",
     ] },
@@ -13,7 +15,7 @@ rules = [
         "domain:juicyads.com",
         "domain:popads.net",
         "domain:chultoux.com",
-        "domain:adxadserv.com"
+        "domain:adxadserv.com",
     ] },
     { action = "proxy", selection = [
         "geosite:geolocation-!cn",

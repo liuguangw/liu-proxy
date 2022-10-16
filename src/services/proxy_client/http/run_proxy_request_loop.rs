@@ -1,23 +1,25 @@
+use crate::services::proxy_client::connection::RemoteConnection;
+
 use super::{
-    super::{
-        proxy_error::ProxyError,
-        server_conn_manger::{ConnPair, ServerConnManger},
-    },
+    super::{proxy_error::ProxyError, server_conn_manger::ServerConnManger},
     proxy_request::proxy_request,
 };
 use bytes::Bytes;
+use futures_util::future::Either;
 use tokio::net::TcpStream;
 
 pub async fn run_proxy_request_loop(
     conn_manger: &ServerConnManger,
-    mut ws_conn_pair: ConnPair,
+    mut remote_conn: RemoteConnection,
     mut stream: TcpStream,
     first_request_data: Bytes,
     remain_data_size: usize,
 ) -> Result<(), ProxyError> {
     // proxy
+    let (mut remote_conn_writer, mut remote_conn_reader) = remote_conn.split();
     let proxy_result = proxy_request(
-        &mut ws_conn_pair,
+        &mut remote_conn_writer,
+        &mut remote_conn_reader,
         &mut stream,
         first_request_data,
         remain_data_size,
@@ -29,7 +31,12 @@ pub async fn run_proxy_request_loop(
     };
     //回收连接
     if !is_ws_err {
-        conn_manger.push_back_conn(ws_conn_pair).await;
+        if let Either::Right(writer) = remote_conn_writer.inner_writer {
+            if let Either::Right(reader) = remote_conn_reader.inner_reader {
+                let ws_conn_pair = (writer, reader);
+                conn_manger.push_back_conn(ws_conn_pair).await;
+            }
+        }
     }
     proxy_result
 }

@@ -13,11 +13,10 @@ use tokio_tungstenite::{
     tungstenite::{handshake::server::Response, Error as WsError, Message},
     Connector, MaybeTlsStream, WebSocketStream,
 };
+pub type ConnPairReader = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
+pub type ConnPairWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 ///一对连接
-pub type ConnPair = (
-    SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
-    SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-);
+pub type ConnPair = (ConnPairWriter, ConnPairReader);
 
 ///服务端连接管理器
 #[derive(Clone)]

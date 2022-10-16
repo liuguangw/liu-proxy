@@ -1,12 +1,12 @@
 use super::{
-    super::{
-        check_server_conn::check_server_conn, run_proxy_tcp_loop::run_proxy_tcp_loop,
-        server_conn_manger::ServerConnManger,
-    },
+    super::{run_proxy_tcp_loop::run_proxy_tcp_loop, server_conn_manger::ServerConnManger},
     proxy_handshake::proxy_handshake,
     write_handshake_response::write_handshake_response,
 };
-use crate::common::{RouteConfigAction, RouteConfigCom};
+use crate::{
+    common::RouteConfigCom,
+    services::proxy_client::connection::{ConnectionError, RemoteConnection},
+};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpStream;
 
@@ -25,20 +25,14 @@ pub async fn handle_connection(
             return;
         }
     };
-    let t_action = route_config.match_action(&conn_dest.to_string());
-    log::info!("[{t_action:?}]{conn_dest}");
-    if let RouteConfigAction::Block = t_action {
-        //socket 5 通知失败信息
-        if let Err(e1) = write_handshake_response(&mut stream, false).await {
-            log::error!("write socks5_response failed: {e1}");
-        }
-        return;
-    }
-    //向服务端发起websocket连接,并进行认证
-    let mut ws_conn_pair = match conn_manger.get_conn_pair().await {
+    let conn_dest = conn_dest.to_string();
+    let remote_conn = match RemoteConnection::connect(&conn_dest, &conn_manger, &route_config).await
+    {
         Ok(s) => s,
         Err(e) => {
-            log::error!("{e}");
+            if !matches!(e, ConnectionError::RouteBlocked) {
+                log::error!("{e}");
+            }
             //socket 5 通知失败信息
             if let Err(e1) = write_handshake_response(&mut stream, false).await {
                 log::error!("write socks5_response failed: {e1}");
@@ -46,38 +40,15 @@ pub async fn handle_connection(
             return;
         }
     };
-    let mut is_ws_err = false;
-    //把目标地址端口发给server,并检测server连接结果
-    let conn_result = check_server_conn(&mut ws_conn_pair, &conn_dest).await;
-    let conn_ok = conn_result.is_ok();
-    match conn_result {
-        Ok(_) => {
-            log::info!("server conn {conn_dest} ok");
-        }
-        Err(e) => {
-            log::error!("server conn {conn_dest} failed: {e}");
-            is_ws_err = e.is_ws_error();
-        }
-    };
-    //写入socks5_response
-    if let Err(e) = write_handshake_response(&mut stream, conn_ok).await {
+    //socks5_response
+    if let Err(e) = write_handshake_response(&mut stream, true).await {
         //回收连接
-        if !is_ws_err {
-            conn_manger.push_back_conn(ws_conn_pair).await;
-        }
+        remote_conn.push_back_conn(&conn_manger).await;
         log::error!("write socks5_response failed: {e}");
         return;
     }
-    //server连接remote失败
-    if !conn_ok {
-        //回收连接
-        if !is_ws_err {
-            conn_manger.push_back_conn(ws_conn_pair).await;
-        }
-        return;
-    }
     //proxy
-    if let Err(proxy_error) = run_proxy_tcp_loop(&conn_manger, ws_conn_pair, stream).await {
+    if let Err(proxy_error) = run_proxy_tcp_loop(&conn_manger, remote_conn, stream).await {
         log::error!("{proxy_error}");
     }
 }

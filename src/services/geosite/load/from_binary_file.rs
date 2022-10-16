@@ -1,6 +1,6 @@
 use crate::common::geosite::GeoSite;
 use rmp_serde::decode::Error as DeSerializeError;
-use std::io::Error as IoError;
+use std::{io::Error as IoError, path::Path};
 use thiserror::Error;
 use tokio::fs;
 
@@ -14,7 +14,7 @@ pub enum FromBinaryError {
 }
 
 ///从二进制文件加载GeoSite
-pub async fn from_binary_file(path: &str) -> Result<GeoSite, FromBinaryError> {
+pub async fn from_binary_file(path: &Path) -> Result<GeoSite, FromBinaryError> {
     let file_data = fs::read(path).await?;
     let geosite_data = rmp_serde::from_slice(&file_data)?;
     Ok(geosite_data)
