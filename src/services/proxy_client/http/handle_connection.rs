@@ -68,7 +68,7 @@ async fn handle_request(
     let (is_connect, conn_dest) = if req_method == http::Method::CONNECT {
         (true, req_path.to_string())
     } else {
-        log::info!("proxy {req_method} {req_path}");
+        //log::info!("proxy {req_method} {req_path}");
         match parse_conn_dest(req_path) {
             Ok(s) => (false, s),
             Err(e) => {

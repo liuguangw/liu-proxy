@@ -18,7 +18,14 @@ domain_rules = [
         "domain:adxadserv.com",
     ] },
     { action = "proxy", selection = [
-        "geosite:geolocation-!cn",
-        "domain:aa.com",
+        "geosite:v2ray",
+        "geosite:google",
+        "geosite:github",
+        "geosite:twitter",
+        "geosite:telegram",
+        "geosite:z-library",
+        "geosite:category-forums",
+        "geosite:category-porn",
+        "domain:hostloc.com",
     ] },
 ]

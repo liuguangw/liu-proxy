@@ -118,7 +118,7 @@ where
         let offset_status = req.parse(&buf)?;
         //读取到了完整的http头信息
         if let Status::Complete(body_offset) = offset_status {
-            log::info!("proxy {} {}", req.method.unwrap(), req.path.unwrap());
+            //log::info!("proxy {} {}", req.method.unwrap(), req.path.unwrap());
             let request_data = build_request::build_request_data(&req, &buf, body_offset);
             let body_total_size = parse_request_body_size(req.headers)?;
             let remain_data_size = if body_total_size > 0 {
