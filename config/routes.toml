@@ -19,6 +19,7 @@ domain_rules = [
         "domain:report.url.cn",
     ] },
     { action = "proxy", selection = [
+        "geosite:rust",
         "geosite:v2ray",
         "geosite:google",
         "geosite:github",
@@ -30,6 +31,7 @@ domain_rules = [
         "geosite:steam",
         "geosite:epicgames",
         "domain:hostloc.com",
+        "domain:curl.se",
     ] },
 ]
 

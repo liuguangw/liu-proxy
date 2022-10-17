@@ -8,7 +8,6 @@ pub mod geoip;
 pub mod geosite;
 ///消息模块
 pub mod msg;
-mod no_verify;
 mod route_config;
 mod route_config_com;
 mod server_config;
@@ -21,7 +20,6 @@ pub use auth_user::AuthUser;
 pub use client_config::ClientConfig;
 pub use client_error::ClientError;
 pub use config_error::ConfigError;
-pub use no_verify::NoServerCertVerifier;
 pub use route_config::{RouteConfig, RouteConfigAction};
 pub use route_config_com::{RouteConfigCom, RouteConfigDomainRuleCom, RouteConfigIpRuleCom};
 pub use server_config::ServerConfig;

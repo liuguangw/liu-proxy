@@ -16,8 +16,8 @@ pub struct ClientConfig {
     pub max_idle_conns: u32,
     ///指定ip来建立tcp连接
     pub server_ip: Option<String>,
-    ///建立ssl连接时,是否跳过ssl证书验证
-    pub insecure: Option<bool>,
+    ///自定义ssl ca文件路径
+    pub ssl_ca_path: Option<String>,
     ///额外的http请求头
     pub extra_http_headers: Option<Vec<[String; 2]>>,
 }
