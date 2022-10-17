@@ -13,8 +13,8 @@ pub enum ConnectionError {
     WsConn(WsError),
     #[error("{0}")]
     ServerConn(ServerConnectError),
-    #[error("direct conn {0} failed, {1}")]
-    TcpConn(String, IoError),
+    #[error("{0}")]
+    TcpConn(IoError),
     #[error("tcp write failed, {0}")]
     TcpWrite(IoError),
     #[error("ws write failed, {0}")]

@@ -63,7 +63,7 @@ impl RemoteConnection {
     async fn conn_direct(conn_dest: &str) -> Result<TcpStream, ConnectionError> {
         TcpStream::connect(conn_dest)
             .await
-            .map_err(|e| ConnectionError::TcpConn(conn_dest.to_string(), e))
+            .map_err(ConnectionError::TcpConn)
     }
 
     ///分割为writer和reader
