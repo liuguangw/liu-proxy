@@ -22,6 +22,7 @@ impl RemoteConnection {
         route_config: &RouteConfigCom,
     ) -> Result<Self, ConnectionError> {
         let t_action = route_config.match_action(conn_dest);
+        log::info!("[{t_action:?}]{conn_dest}");
         let conn = match t_action {
             RouteConfigAction::Direct => Either::Left(Self::conn_direct(conn_dest).await?),
             RouteConfigAction::Proxy => {
@@ -30,7 +31,6 @@ impl RemoteConnection {
             }
             RouteConfigAction::Block => return Err(ConnectionError::RouteBlocked),
         };
-        log::info!("[{t_action:?}]{conn_dest}");
         Ok(Self { conn })
     }
 

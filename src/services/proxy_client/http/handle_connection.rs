@@ -87,7 +87,7 @@ async fn handle_request(
         Ok(s) => s,
         Err(e) => {
             if !matches!(e, ConnectionError::RouteBlocked) {
-                log::error!("{e}");
+                log::error!("conn {conn_dest} failed: {e}");
             }
             //http 通知失败信息
             if let Err(e1) =

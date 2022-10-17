@@ -1,20 +1,27 @@
-use std::net::IpAddr;
-
+use super::{geoip::IpRuleGroup, geosite::DomainRuleGroup, route_config::RouteConfigAction};
+use maxminddb::Reader;
 use regex::Regex;
-
-use super::{geosite::DomainRuleGroup, route_config::RouteConfigAction};
+use std::net::IpAddr;
 
 ///解析处理过的路由配置
 #[derive(Debug)]
 pub struct RouteConfigCom {
     pub default_domain_action: RouteConfigAction,
     pub default_ip_action: RouteConfigAction,
-    pub domain_rules: Vec<RouteConfigRuleCom>,
+    pub domain_rules: Vec<RouteConfigDomainRuleCom>,
+    pub ip_rules: Vec<RouteConfigIpRuleCom>,
+    pub mmdb_data: Option<Reader<Vec<u8>>>,
 }
 #[derive(Debug)]
-pub struct RouteConfigRuleCom {
+pub struct RouteConfigDomainRuleCom {
     pub t_action: RouteConfigAction,
     pub selection: DomainRuleGroup,
+}
+
+#[derive(Debug)]
+pub struct RouteConfigIpRuleCom {
+    pub t_action: RouteConfigAction,
+    pub selection: IpRuleGroup,
 }
 
 impl Default for RouteConfigCom {
@@ -23,6 +30,8 @@ impl Default for RouteConfigCom {
             default_domain_action: RouteConfigAction::Proxy,
             default_ip_action: RouteConfigAction::Proxy,
             domain_rules: Vec::default(),
+            ip_rules: Vec::default(),
+            mmdb_data: None,
         }
     }
 }
@@ -46,31 +55,37 @@ impl RouteConfigCom {
                 }
             }
         };
-        if !is_domain {
-            //log::info!("[is_ip]{host}");
-            let ip_addr: IpAddr = match host.parse() {
-                Ok(s) => s,
-                Err(e) => {
-                    log::error!("parse ip {host} failed: {e}");
-                    return self.default_ip_action;
-                }
-            };
-            let need_direct = match ip_addr {
-                IpAddr::V4(s) => {
-                    s.is_private() || s.is_loopback() || s.is_broadcast() || s.is_multicast()
-                }
-                IpAddr::V6(s) => s.is_loopback() || s.is_multicast(),
-            };
-            if need_direct {
-                return RouteConfigAction::Direct;
-            }
-            return self.default_ip_action;
+        if is_domain {
+            self.match_domain(host)
+        } else {
+            self.match_ip(host)
         }
+    }
+
+    fn match_domain(&self, domain: &str) -> RouteConfigAction {
         for rule in &self.domain_rules {
-            if rule.selection.match_domain(host) {
+            if rule.selection.match_domain(domain) {
                 return rule.t_action;
             }
         }
         self.default_domain_action
+    }
+
+    fn match_ip(&self, ip_str: &str) -> RouteConfigAction {
+        let ip_addr: IpAddr = match ip_str.parse() {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("parse ip {ip_str} failed: {e}");
+                return self.default_ip_action;
+            }
+        };
+        if let Some(mmdb_data) = &self.mmdb_data {
+            for rule in &self.ip_rules {
+                if rule.selection.match_ip(&ip_addr, mmdb_data) {
+                    return rule.t_action;
+                }
+            }
+        }
+        self.default_ip_action
     }
 }

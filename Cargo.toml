@@ -31,6 +31,8 @@ axum-server = { version = "0.3", features = ["tls-rustls"] }
 serde_repr = "0.1"
 rmp-serde ="1.1.1"
 regex = "1.6.0"
+ipnet = "2.5.0"
+maxminddb = "0.23.0"
 
 [dependencies.tokio]
 version = "1.20.1"

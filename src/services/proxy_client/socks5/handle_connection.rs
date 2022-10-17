@@ -31,7 +31,7 @@ pub async fn handle_connection(
         Ok(s) => s,
         Err(e) => {
             if !matches!(e, ConnectionError::RouteBlocked) {
-                log::error!("{e}");
+                log::error!("conn {conn_dest} failed: {e}");
             }
             //socket 5 通知失败信息
             if let Err(e1) = write_handshake_response(&mut stream, false).await {

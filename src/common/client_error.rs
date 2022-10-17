@@ -1,5 +1,9 @@
 use super::{ConfigError, ParseWebsocketRequestError};
-use crate::services::geosite::{FromBinaryError, ParseDomainSelectionError};
+use crate::services::{
+    geoip::ParseIpSelectionError,
+    geosite::{FromBinaryError, ParseDomainSelectionError},
+};
+use maxminddb::MaxMindDBError;
 use std::io::Error as IoError;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite::Error as WsError;
@@ -21,6 +25,10 @@ pub enum ClientError {
     HttpService(IoError),
     #[error("load geosite data failed: {0}")]
     LoadGeoSite(#[from] FromBinaryError),
+    #[error("load mmdb data failed: {0}")]
+    LoadMmdb(#[from] MaxMindDBError),
     #[error("parse route domain selection failed: {0}")]
     ParseDomainSelection(#[from] ParseDomainSelectionError),
+    #[error("parse route ip selection failed: {0}")]
+    ParseIpSelection(#[from] ParseIpSelectionError),
 }

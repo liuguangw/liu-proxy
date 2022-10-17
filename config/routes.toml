@@ -1,11 +1,11 @@
 [client]
 # 域名默认直连
 default_domain_action = "direct"
-# ip默认代理
-default_ip_action = "proxy"
 domain_rules = [
     { action = "direct", selection = [
         "geosite:google@cn",
+        "geosite:steam@cn",
+        "geosite:epicgames@cn",
     ] },
     { action = "block", selection = [
         "geosite:category-ads-all",
@@ -16,6 +16,7 @@ domain_rules = [
         "domain:popads.net",
         "domain:chultoux.com",
         "domain:adxadserv.com",
+        "domain:report.url.cn",
     ] },
     { action = "proxy", selection = [
         "geosite:v2ray",
@@ -26,6 +27,18 @@ domain_rules = [
         "geosite:z-library",
         "geosite:category-forums",
         "geosite:category-porn",
+        "geosite:steam",
+        "geosite:epicgames",
         "domain:hostloc.com",
+    ] },
+]
+
+# ip默认代理
+default_ip_action = "proxy"
+ip_rules = [
+    { action = "direct", selection = [
+        "geoip:private",
+        "223.5.5.5/32",
+        "geoip:cn",
     ] },
 ]
