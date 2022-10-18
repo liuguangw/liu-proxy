@@ -24,7 +24,10 @@ env_logger = "0.9.0"
 httparse = "1.8.0"
 sha1 = "0.10.5"
 base64 = "0.13.0"
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false, features = [
+    "std",
+    "clock",
+] }
 http = "0.2"
 axum = { version = "0.5.16", features = ["ws", "headers"] }
 hyper = { version = "0.14.20", features = ["server", "tcp", "stream"] }
@@ -41,8 +44,6 @@ version = "1.20.1"
 features = [
     "fs",
     "net",
-    "io-std",
-    "io-util",
     "macros",
     "rt-multi-thread",
     "sync",

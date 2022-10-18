@@ -20,7 +20,7 @@ pub use auth_user::AuthUser;
 pub use client_config::ClientConfig;
 pub use client_error::ClientError;
 pub use config_error::ConfigError;
-pub use route_config::{RouteConfig, RouteConfigAction};
+pub use route_config::{RouteConfig, RouteConfigAction, RouteConfigRule};
 pub use route_config_com::{RouteConfigCom, RouteConfigDomainRuleCom, RouteConfigIpRuleCom};
 pub use server_config::ServerConfig;
 pub use server_error::ServerError;
